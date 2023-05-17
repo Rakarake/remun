@@ -1,5 +1,10 @@
 //! The memory bus of the system, owns all other components.
 
+mod bus;
+mod cpu;
+
+const OMEGAWOW: i32 = bus::WOW;
+
 const RAM_RANGE: (u16, u16) = (0x0000, 0xFFFF);
 
 mod s_flags {
@@ -151,6 +156,15 @@ impl Bus {
 
     fn write(&mut self, addr: u16, data: u8) {
         
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn it_works() {
+        let result = 2 + 2;
+        assert_eq!(result, 4);
     }
 }
 
