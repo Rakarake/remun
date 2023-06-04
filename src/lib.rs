@@ -1,6 +1,7 @@
 mod bus;
 mod cpu;
-
+mod ram;
+mod parser;
 
 #[cfg(test)]
 mod tests {
