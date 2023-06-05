@@ -12,5 +12,5 @@ opt-level = 1
 opt-level = 3
 
 [workspace]
-members = [ "remun-bevy" ]
+members = [ "remun-bevy", "inesasm" ]
 
