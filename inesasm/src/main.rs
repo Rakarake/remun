@@ -64,7 +64,72 @@ enum Statement {
     DataBytes(Vec<u8>),
 }
 
+enum DecoratedStatement {
+    Label(String, Statement),
+    NoLabel(Statement),
+}
 
+enum Program {
+    Program(Vec<DecoratedStatement>),
+}
+
+use nom::branch::alt;
+fn parse_program(input: &str) -> IResult<&str, Program> {
+    unimplemented!()
+}
+
+use nom::character::complete::space0;
+use nom::character::complete::multispace0;
+use nom::character::complete::line_ending;
+use nom::character::complete::alpha1;
+use nom::sequence::tuple;
+use nom::combinator::opt;
+fn parse_label(input: &str) -> IResult<&str, &str> {
+    let (input, label) = alpha1(input)?;
+    let (input, _) = tag(":")(input)?;
+    Ok((input, label))
+}
+
+fn parse_decorated_statement(input: &str) -> IResult<&str, DecoratedStatement> {
+    let (input, maybe_label) = opt(parse_label)(input)?;
+    let (input, statement) = parse_statement(input)?;
+    let decorated_statement = match maybe_label {
+        Some(label) => DecoratedStatement::Label(label.to_string(), statement),
+        None => DecoratedStatement::NoLabel(statement)
+    };
+    Ok((input, decorated_statement))
+}
+
+fn parse_statement(input: &str) -> IResult<&str, Statement> {
+    let (input, _) = space0(input)?;
+    let (input, statement) = alt((parse_operation,parse_directive))(input)?;
+    let (input, _) = alt((parse_comment, value((), space0)))(input)?;
+    Ok((input, statement))
+}
+
+fn parse_comment<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, (), E> {
+  value(
+    (), // Output is thrown away.
+    pair(char('%'), is_not("\n\r"))
+  )(i)
+}
+
+fn parse_directive(input: &str) -> IResult<&str, Statement> {
+    let (input, _) = tag(".")(input)?;
+    !unimplemented!()
+}
+
+fn parse_operation(input: &str) -> IResult<&str, Statement> {
+    !unimplemented!()
+}
+
+use nom::{
+  error::ParseError,
+  combinator::value,
+  sequence::pair,
+  bytes::complete::is_not,
+  character::complete::char,
+};
 
 const TEST_1: &str = "#2F14DF";
 
