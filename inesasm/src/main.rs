@@ -45,7 +45,7 @@ enum Operand {
     IndirectY(u16), //($44),Y
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Opcode {
     LDA,
     STA,
@@ -53,7 +53,7 @@ enum Opcode {
 
 #[derive(Debug)]
 enum Statement {
-    Operation(Opcode, Option<Operand>),
+    Operation(Opcode, Operand),
     // Directives
     Bing,
     DataBytes(Vec<u8>),
@@ -111,7 +111,7 @@ fn parse_decorated_statement(input: &str) -> IResult<&str, DecoratedStatement> {
 fn parse_statement(input: &str) -> IResult<&str, Statement> {
     let (input, _) = space0(input)?;
     // TODO: add parse_operation
-    let (input, statement) = alt((parse_directive,parse_directive))(input)?;
+    let (input, statement) = alt((parse_directive, parse_operation))(input)?;
     let (input, _) = alt((parse_comment, value((), space0)))(input)?;
     Ok((input, statement))
 }
@@ -137,6 +137,13 @@ fn parse_directive(input: &str) -> IResult<&str, Statement> {
     parse_bing_chilling(input)
 }
 
+fn parse_opcode(input: &str) -> IResult<&str, Opcode> {
+    alt((
+        value(Opcode::LDA, tag("LDA")),
+        value(Opcode::STA, tag("STA"))
+    ))(input)
+}
+
 // The greatest test directive, gives off chills in the assembly
 fn parse_bing_chilling (input: &str) -> IResult<&str, Statement> {
     let (input, (_, _, _)) = tuple((tag("bing"), space0, tag("\"chilling\"")))(input)?;
@@ -144,17 +151,18 @@ fn parse_bing_chilling (input: &str) -> IResult<&str, Statement> {
 }
 
 fn parse_operation(input: &str) -> IResult<&str, Statement> {
+    // Opcode | Operand
+
     !unimplemented!()
 }
 
 const TEST_1: &str = "#2F14DF";
 
 const TEST_2: &str = "
-_SUPBRU_H: .bing \"chilling\"
+_SUPBRU_H: LDA $40
            .bing \"chilling\"
 MONSer:    .bing \"chilling\"
 ";
-    //LDA $40
     //TAX             ; Transfer A to X
     //STX $FFFF,X
 fn main() {
