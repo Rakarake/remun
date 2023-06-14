@@ -1,29 +1,30 @@
 use nom::{
-  bytes::complete::tag,
-  IResult,
-  error::ParseError,
-  combinator::value,
-  bytes::complete::is_not,
-  character::complete::char,
-  multi::many0_count,
-  combinator::recognize,
-  sequence::pair,
-  character::complete::alpha1,
-  branch::alt,
-  character::complete::space0,
-  character::complete::multispace0,
-  character::complete::multispace1,
-  character::complete::alphanumeric1,
-  character::complete::u8,
-  character::complete::u16,
-  sequence::tuple,
-  combinator::opt,
-  multi::many0,
-  combinator::all_consuming,
-  multi::many1,
-  sequence::{preceded, terminated},
-  character::complete::one_of,
-  combinator::map_res,
+    branch::alt,
+    bytes::complete::is_not,
+    bytes::complete::tag,
+    character::complete::alpha1,
+    character::complete::alphanumeric1,
+    character::complete::char,
+    character::complete::multispace0,
+    character::complete::multispace1,
+    character::complete::one_of,
+    character::complete::space0,
+    character::complete::space1,
+    character::complete::u16,
+    character::complete::u8,
+    combinator::all_consuming,
+    combinator::map_res,
+    combinator::opt,
+    combinator::recognize,
+    combinator::value,
+    error::ParseError,
+    multi::many0,
+    multi::many0_count,
+    multi::many1,
+    sequence::pair,
+    sequence::tuple,
+    sequence::{preceded, terminated},
+    IResult,
 };
 
 // Addressing modes for LDA
@@ -55,6 +56,7 @@ enum Operand {
 enum Opcode {
     LDA,
     STA,
+    NOP,
 }
 
 #[derive(Debug)]
@@ -98,7 +100,7 @@ fn parse_decorated_statement(i: &str) -> IResult<&str, DecoratedStatement> {
     let (i, _) = parse_multispace_comment(i)?;
     let decorated_statement = match maybe_label {
         Some(label) => DecoratedStatement::Label(label.to_string(), statement),
-        None => DecoratedStatement::NoLabel(statement)
+        None => DecoratedStatement::NoLabel(statement),
     };
     Ok((i, decorated_statement))
 }
@@ -118,7 +120,7 @@ fn parse_directive(i: &str) -> IResult<&str, Statement> {
 }
 
 // The greatest test directive, gives off chills in the assembly
-fn parse_bing_chilling (i: &str) -> IResult<&str, Statement> {
+fn parse_bing_chilling(i: &str) -> IResult<&str, Statement> {
     let (i, (_, _, _)) = tuple((tag("bing"), space0, tag("\"chilling\"")))(i)?;
     Ok((i, Statement::Bing))
 }
@@ -126,8 +128,9 @@ fn parse_bing_chilling (i: &str) -> IResult<&str, Statement> {
 fn parse_operation(i: &str) -> IResult<&str, Statement> {
     // Opcode | Operand
     let (i, opcode) = parse_opcode(i)?;
-    let (i, operand) = parse_operand(i)?;
-    !unimplemented!()
+    let (i, _) = space1(i)?; // TODO: handle IMPLIED
+    let (i, operand) = parse_operand(opcode.clone(), i)?;
+    Ok((i, Statement::Operation(opcode, operand)))
 }
 
 //Immediate     LDA #$44      $A9  2   2
@@ -150,11 +153,18 @@ fn parse_operation(i: &str) -> IResult<&str, Statement> {
 //    IndirectX(u16), //($44,X)
 //    IndirectY(u16), //($44),Y
 //}
-fn parse_operand(i: &str) -> IResult<&str, Operand> {
-    alt((
-        value(Operand::Immediate(8), tag("\n")),
-    ))(i)?;
-    !unimplemented!()
+fn parse_operand(opcode: Opcode, i: &str) -> IResult<&str, Operand> {
+    // Match on opcode
+    match opcode {
+        Opcode::LDA => alt((parse_immediate, parse_immediate))(i),
+        Opcode::STA => parse_immediate(i),
+        Opcode::NOP => parse_implied(i),
+    }
+}
+
+// Use last in 'alt'
+fn parse_implied(i: &str) -> IResult<&str, Operand> {
+    Ok((i, Operand::Implied))
 }
 
 fn parse_immediate(i: &str) -> IResult<&str, Operand> {
@@ -166,27 +176,26 @@ fn parse_immediate(i: &str) -> IResult<&str, Operand> {
 fn parse_opcode(i: &str) -> IResult<&str, Opcode> {
     alt((
         value(Opcode::LDA, tag("LDA")),
-        value(Opcode::STA, tag("STA"))
+        value(Opcode::STA, tag("STA")),
+        value(Opcode::NOP, tag("NOP")),
     ))(i)
 }
 
 const TEST_1: &str = "#2F14DF";
 
 const TEST_2: &str = "
-_SUPBRU_H: LDA $40
-           .bing \"chilling\"
-MONSer:    .bing \"chilling\"
+wowzers:   NOP
+wowzers2:  NOP
+lad:       LDA #$30
 ";
-    //TAX             ; Transfer A to X
-    //STX $FFFF,X
+//TAX             ; Transfer A to X
+//STX $FFFF,X
 fn main() {
-  println!("{:?}", parse_program(TEST_2))
+    println!("{:?}", parse_program(TEST_2))
 }
 
 #[test]
-fn parse_color() {
-}
-
+fn parse_color() {}
 
 // Utility
 
@@ -199,72 +208,68 @@ fn parse_multispace_comment(i: &str) -> IResult<&str, ()> {
 // Taken from the nom documentation
 // https://docs.rs/nom/latest/nom/recipes/index.html#comments
 fn parse_comment<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, (), E> {
-  value(
-    (), // Output is thrown away.
-    pair(char('%'), is_not("\n\r"))
-  )(i)
+    value(
+        (), // Output is thrown away.
+        pair(char('%'), is_not("\n\r")),
+    )(i)
 }
 
-// Modified from the nom documentation: 
+// Modified from the nom documentation:
 // https://docs.rs/nom/latest/nom/recipes/index.html#hexadecimal
 fn parse_hex(i: &str) -> IResult<&str, &str> {
-  preceded(
-    tag("$"),
-    recognize(
-      many1(
-        terminated(one_of("0123456789abcdefABCDEF"), many0(char('_')))
-      )
-    )
-  )(i)
+    preceded(
+        tag("$"),
+        recognize(many1(terminated(
+            one_of("0123456789abcdefABCDEF"),
+            many0(char('_')),
+        ))),
+    )(i)
 }
 
 fn parse_bin(i: &str) -> IResult<&str, &str> {
-  preceded(
-    tag("%"),
-    recognize(
-      many1(
-        terminated(one_of("01"), many0(char('_')))
-      )
-    )
-  )(i)
+    preceded(
+        tag("%"),
+        recognize(many1(terminated(one_of("01"), many0(char('_'))))),
+    )(i)
 }
 
 fn parse_u8(i: &str) -> IResult<&str, u8> {
     alt((
-        map_res(  // Base 16
-          parse_hex,
-          |out: &str| u8::from_str_radix(&str::replace(&out, "_", ""), 16)
+        map_res(
+            // Base 16
+            parse_hex,
+            |out: &str| u8::from_str_radix(&str::replace(&out, "_", ""), 16),
         ),
-        map_res(  // Base 2
-          parse_bin,
-          |out: &str| u8::from_str_radix(&str::replace(&out, "_", ""), 2)
+        map_res(
+            // Base 2
+            parse_bin,
+            |out: &str| u8::from_str_radix(&str::replace(&out, "_", ""), 2),
         ),
-        u8,  // Base 10
+        u8, // Base 10
     ))(i)
 }
 
 fn parse_u16(i: &str) -> IResult<&str, u16> {
     alt((
-        map_res(  // Base 16
-          parse_hex,
-          |out: &str| u16::from_str_radix(&str::replace(&out, "_", ""), 16)
+        map_res(
+            // Base 16
+            parse_hex,
+            |out: &str| u16::from_str_radix(&str::replace(&out, "_", ""), 16),
         ),
-        map_res(  // Base 2
-          parse_bin,
-          |out: &str| u16::from_str_radix(&str::replace(&out, "_", ""), 2)
+        map_res(
+            // Base 2
+            parse_bin,
+            |out: &str| u16::from_str_radix(&str::replace(&out, "_", ""), 2),
         ),
-        u16,  // Base 10
+        u16, // Base 10
     ))(i)
 }
 
-// Taken from the nom documentation: 
+// Taken from the nom documentation:
 // https://docs.rs/nom/latest/nom/recipes/index.html#rust-style-identifiers
 pub fn parse_identifier(i: &str) -> IResult<&str, &str> {
-  recognize(
-    pair(
-      alt((alpha1, tag("_"))),
-      many0_count(alt((alphanumeric1, tag("_"))))
-    )
-  )(i)
+    recognize(pair(
+        alt((alpha1, tag("_"))),
+        many0_count(alt((alphanumeric1, tag("_")))),
+    ))(i)
 }
-
