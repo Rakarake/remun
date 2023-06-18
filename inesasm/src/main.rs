@@ -15,12 +15,12 @@ use nom::{
     character::complete::space1,
     character::complete::u16,
     character::complete::u8,
-    combinator::all_consuming,
     combinator::map_res,
     combinator::opt,
     combinator::recognize,
     combinator::value,
     combinator::success,
+    combinator::eof,
     error::ParseError,
     multi::many0,
     multi::many0_count,
@@ -29,11 +29,15 @@ use nom::{
     sequence::tuple,
     sequence::{preceded, terminated},
     IResult,
+    Parser,
 };
 
 use nom_supreme::error::ErrorTree;
 use nom_supreme::tag::complete::tag;
 use nom_supreme::tag::complete::tag_no_case;
+use nom_supreme::final_parser::{
+    ExtractContext, Location, RecreateContext, final_parser,
+};
 
 use nom_supreme::parser_ext::ParserExt;
 use nom::error::context;
@@ -61,6 +65,13 @@ enum Operand {
     AbsoluteY(u16), //$4400,Y
     IndirectX(u8), //($44,X)
     IndirectY(u8), //($44),Y
+    Relative(RelativeVal),  //$44
+}
+
+#[derive(Debug, Clone)]
+enum RelativeVal {
+    Label(String),
+    Number(u8),
 }
 
 #[derive(Debug, Clone)]
@@ -89,12 +100,21 @@ enum Program {
     Program(Vec<DecoratedStatement>),
 }
 
+use nom_supreme::multi::collect_separated_terminated;
+
 // Parse an entire string of assembly
 fn parse_program(i: &str) -> IResult<&str, Program, ErrorTree<&str>> {
     // TODO: add support for newlines
     let (i, _) = parse_multispace_comment(i)?;
-    let (i, statements) = all_consuming(many0(parse_decorated_statement))(i)?;
+    let (i, statements) = collect_separated_terminated(
+        parse_decorated_statement, parse_multispace_comment, 
+        pair(parse_multispace_comment, eof)).parse(i)?;
     Ok((i, Program::Program(statements)))
+}
+
+// Use this to get a normal rust result
+fn parse_program_final(i: &str) -> Result<Program, ErrorTree<&str>> {
+    final_parser(parse_program)(i)
 }
 
 fn parse_label(i: &str) -> IResult<&str, &str, ErrorTree<&str>> {
@@ -108,7 +128,6 @@ fn parse_decorated_statement(i: &str) -> IResult<&str, DecoratedStatement, Error
     let (i, maybe_label) = opt(parse_label)(i)?;
     let (i, _) = multispace0(i)?;
     let (i, statement) = parse_statement(i)?;
-    let (i, _) = parse_multispace_comment(i)?;
     let decorated_statement = match maybe_label {
         Some(label) => DecoratedStatement::Label(label.to_string(), statement),
         None => DecoratedStatement::NoLabel(statement),
@@ -119,7 +138,7 @@ fn parse_decorated_statement(i: &str) -> IResult<&str, DecoratedStatement, Error
 fn parse_statement(i: &str) -> IResult<&str, Statement, ErrorTree<&str>> {
     let (i, _) = space0(i)?;
     // TODO: add parse_operation
-    let (i, statement) = alt((parse_directive, parse_operation))(i)?;
+    let (i, statement) = alt((parse_directive, parse_operation.context("parsing operation")))(i)?;
     let (i, _) = alt((parse_comment, value((), space0)))(i)?;
     Ok((i, statement))
 }
@@ -147,7 +166,6 @@ fn parse_operation(i: &str) -> IResult<&str, Statement, ErrorTree<&str>> {
     let (i, operand) = alt((preceded(space1, parse_operand(opcode.clone())), 
             success(Operand::Implied)))(i)?;
 
-    dbg!(operand.clone());
     Ok((i, Statement::Operation(opcode, operand)))
 }
 
@@ -341,10 +359,40 @@ pub fn parse_identifier(i: &str) -> IResult<&str, &str, ErrorTree<&str>> {
 
 
 fn main() {
-    dbg!(parse_program(TEST));
+    let result = parse_program_final(TEST);
+    if let Err(e) = result {
+        println!("Failiure!");
+        //TODO: make a string and use it
+        get_error_string(e);
+    } else {
+        println!("Success!");
+        dbg!(result);
+    }
 }
 
-
+//TODO: make a string and use it
+use std::error::Error;
+fn get_error_string(error: nom_supreme::error::GenericErrorTree<&str, &str, &str, Box<dyn Error + Send + Sync>>) {
+   match error {
+       nom_supreme::error::GenericErrorTree::Stack { base, contexts } => {
+           println!("Stack");
+           dbg!(base);
+           for context in contexts {
+               dbg!(Location::recreate_context(TEST, context.0));
+           }
+       },
+       nom_supreme::error::GenericErrorTree::Alt(inner_errors) => {
+           println!("Alt");
+           for inner_error in inner_errors {
+               get_error_string(inner_error);
+           }
+       },
+       nom_supreme::error::GenericErrorTree::Base { location, kind } => {
+           println!("Base");
+           dbg!(location, kind);
+       },
+   }
+}
 
 #[test]
 fn addressing_modes() {
@@ -364,8 +412,8 @@ wowzers:    NOP
 WOWZERS2:   LDA $2000,X
             LDA ($20, X)
             LDA ($2F), Y
-ZEROPAGEX:  LDA @$FF,   X
-            LDA $0000,Y
+ZEROPAGEX:  LDA @$FF, X
+            LDA ####$0000,Y
 lad:        LDA #$30
 ";
 
