@@ -68,6 +68,8 @@ enum Operand {
     Relative(RelativeVal),  //$44
 }
 
+// Used for the relative addressing mode, a label points to a 16bit address,
+// it is converted to a relative 8bit number later.
 #[derive(Debug, Clone)]
 enum RelativeVal {
     Label(String),
@@ -138,7 +140,7 @@ fn parse_decorated_statement(i: &str) -> IResult<&str, DecoratedStatement, Error
 fn parse_statement(i: &str) -> IResult<&str, Statement, ErrorTree<&str>> {
     let (i, _) = space0(i)?;
     // TODO: add parse_operation
-    let (i, statement) = alt((parse_directive, parse_operation.context("parsing operation")))(i)?;
+    let (i, statement) = alt((parse_directive.context("directive"), parse_operation.context("operation")))(i)?;
     let (i, _) = alt((parse_comment, value((), space0)))(i)?;
     Ok((i, statement))
 }
@@ -204,43 +206,43 @@ fn parse_implied(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
 
 fn parse_immediate(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
     let (i, _) = tag("#")(i)?;
-    let (i, val) = parse_u8(i)?;
+    let (i, val) = parse_u8.context("immediate expecting u8").parse(i)?;
     Ok((i, Operand::Immediate(val)))
 }
 
 fn parse_zero_page(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
     let (i, _) = tag("@")(i)?;
-    let (i, val) = parse_u8(i)?;
+    let (i, val) = parse_u8.context("zero page expecting u8").parse(i)?;
     Ok((i, Operand::ZeroPage(val)))
 }
 
 fn parse_zero_page_x(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
     let (i, _) = tag("@")(i)?;
-    let (i, val) = parse_u8(i)?;
+    let (i, val) = parse_u8.context("zero page x expecting u8").parse(i)?;
     let (i, _) = parse_trailing_x_y("X")(i)?;
     Ok((i, Operand::ZeroPageX(val)))
 }
 
 fn parse_absolute(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
-    let (i, val) = parse_u16(i)?;
+    let (i, val) = parse_u16.context("absolute expecting u16").parse(i)?;
     Ok((i, Operand::Absolute(val)))
 }
 
 fn parse_absolute_x(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
-    let (i, val) = parse_u16(i)?;
+    let (i, val) = parse_u16.context("absolute x expecting u16").parse(i)?;
     let (i, _) = parse_trailing_x_y("X")(i)?;
     Ok((i, Operand::AbsoluteX(val)))
 }
 
 fn parse_absolute_y(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
-    let (i, val) = parse_u16(i)?;
+    let (i, val) = parse_u16.context("absolute y expecting u16").parse(i)?;
     let (i, _) = parse_trailing_x_y("Y")(i)?;
     Ok((i, Operand::AbsoluteY(val)))
 }
 
 fn parse_indirect_x(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
     let (i, _) = tag("(")(i)?;
-    let (i, val) = parse_u8(i)?;
+    let (i, val) = parse_u8.context("indirect x expecting u8").parse(i)?;
     let (i, _) = parse_trailing_x_y("X")(i)?;
     let (i, _) = space0(i)?;
     let (i, _) = tag(")")(i)?;
@@ -249,7 +251,7 @@ fn parse_indirect_x(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
 
 fn parse_indirect_y(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
     let (i, _) = tag("(")(i)?;
-    let (i, val) = parse_u8(i)?;
+    let (i, val) = parse_u8.context("indirect y expecting u8").parse(i)?;
     let (i, _) = tag(")")(i)?;
     let (i, _) = parse_trailing_x_y("Y")(i)?;
     let (i, _) = space0(i)?;
@@ -291,7 +293,7 @@ fn parse_multispace_comment(i: &str) -> IResult<&str, (), ErrorTree<&str>> {
 fn parse_comment<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, (), E> {
     value(
         (), // Output is thrown away.
-        pair(char('%'), is_not("\n\r")),
+        pair(char(';'), is_not("\n\r")),
     )(i)
 }
 
@@ -379,6 +381,7 @@ fn get_error_string(error: nom_supreme::error::GenericErrorTree<&str, &str, &str
            dbg!(base);
            for context in contexts {
                dbg!(Location::recreate_context(TEST, context.0));
+               dbg!(context.1);
            }
        },
        nom_supreme::error::GenericErrorTree::Alt(inner_errors) => {
@@ -395,25 +398,57 @@ fn get_error_string(error: nom_supreme::error::GenericErrorTree<&str, &str, &str
 }
 
 #[test]
-fn addressing_modes() {
-    let result = parse_program(TEST);
+fn test_addressing_modes() {
+    let result = parse_program_final(TEST_ADDRESSING_MODES);
     match result {
-        Err(error) => panic!("addressing mode parsing error: {:?}", error),
-        Ok((_, Program::Program(statements))) => { 
-            for statement in statements {
-                //TODO: check that every addressing mode is used
-            }
+        Err(error) => { get_error_string(error) ; panic!() },
+        Ok(_) => { 
+            //for statement in statements {
+            //    //TODO: check that every addressing mode is used
+            //}
         },
     }
 }
 
-const TEST: &str = "
-wowzers:    NOP
-WOWZERS2:   LDA $2000,X
+#[test]
+fn test_features() {
+    let result = parse_program_final(TEST_FEATURES);
+    match result {
+        Err(error) => { get_error_string(error) ; panic!() },
+        Ok(_) => {},
+    }
+}
+
+const TEST: &str =
+"wowzers:   NOP
+
+ERROR:      LDA ##$3000
+WOWZERS2:   LDA $2000,X        ; Big comment
             LDA ($20, X)
             LDA ($2F), Y
 ZEROPAGEX:  LDA @$FF, X
-            LDA ####$0000,Y
-lad:        LDA #$30
+            LDA $0000,Y
+lad:        LDA #$30";
+
+const TEST_FEATURES: &str =
+"BingChilling: .bing \"chilling\" ; The directive
+;  Comment                          A comment
+ ; Comment                          Another comment
+LDA $30                           ; An instruction
+";
+
+const TEST_ADDRESSING_MODES: &str = 
+"IMPLIED:    NOP
+IMMEDIATE:   LDA #$44
+ZERO_PAGE:   LDA @$44
+ZERO_PAGE_X: LDA @$44,X
+ABSOLUTE:    LDA $4400
+ABSOLUTE_X:  LDA $4400,X
+ABSOLUTE_Y:  LDA $4400,Y
+RELATIVE_X:  LDA ($44, X)
+RELATIVE_Y:  LDA ($44), Y
+
+; TODO: add relative addressing modes
+
 ";
 
