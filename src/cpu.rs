@@ -1,12 +1,12 @@
 mod s_flags {
-    const C: u8 = 1 << 0;  // Carry
-    const Z: u8 = 1 << 1;  // Zero
-    const I: u8 = 1 << 2;  // Disable Interrupts
-    const D: u8 = 1 << 3;  // Decimal Mode (Unused in NES)
-    const B: u8 = 1 << 4;  // Break
-    const U: u8 = 1 << 5;  // Unused :(
-    const V: u8 = 1 << 6;  // Overflow
-    const N: u8 = 1 << 7;  // Negative
+    const C: u8 = 1 << 0; // Carry
+    const Z: u8 = 1 << 1; // Zero
+    const I: u8 = 1 << 2; // Disable Interrupts
+    const D: u8 = 1 << 3; // Decimal Mode (Unused in NES)
+    const B: u8 = 1 << 4; // Break
+    const U: u8 = 1 << 5; // Unused :(
+    const V: u8 = 1 << 6; // Overflow
+    const N: u8 = 1 << 7; // Negative
 }
 
 // Opcodes indexed by their binary first byte
@@ -14,22 +14,54 @@ mod s_flags {
 // MSD: Most Segnificant Digit, indexes down
 // LSD: Least Segnificant Digit, indexes right
 const OPCODES: [[Opcode; 16]; 16] = [
-    [ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL],
-    [ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL],
-    [ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL],
-    [ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL],
-    [ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL],
-    [ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL],
-    [ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL],
-    [ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL],
-    [ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL],
-    [ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL],
-    [ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL],
-    [ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL],
-    [ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL],
-    [ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL],
-    [ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL],
-    [ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL,ILL],
+    [
+        ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL,
+    ],
+    [
+        ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL,
+    ],
+    [
+        ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL,
+    ],
+    [
+        ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL,
+    ],
+    [
+        ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL,
+    ],
+    [
+        ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL,
+    ],
+    [
+        ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL,
+    ],
+    [
+        ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL,
+    ],
+    [
+        ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL,
+    ],
+    [
+        ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL,
+    ],
+    [
+        ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL,
+    ],
+    [
+        ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL,
+    ],
+    [
+        ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL,
+    ],
+    [
+        ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL,
+    ],
+    [
+        ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL,
+    ],
+    [
+        ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL, ILL,
+    ],
 ];
 
 struct Opcode<'a> {
@@ -42,7 +74,12 @@ struct Opcode<'a> {
 }
 
 // All opcodes
-const ILL: Opcode = Opcode { name: "ILL", op_func: ill, addr_func: imm, cycles: 1 };
+const ILL: Opcode = Opcode {
+    name: "ILL",
+    op_func: ill,
+    addr_func: imm,
+    cycles: 1,
+};
 
 // Information from the addressing mode operation to the opcode operation,
 // this state does not "exist" in hardware, it can be seen as

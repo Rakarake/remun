@@ -16,4 +16,3 @@ impl BusRange for Ram {
         (0x0000, 0x07FF)
     }
 }
-

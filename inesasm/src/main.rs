@@ -15,12 +15,12 @@ use nom::{
     character::complete::space1,
     character::complete::u16,
     character::complete::u8,
+    combinator::eof,
     combinator::map_res,
     combinator::opt,
     combinator::recognize,
-    combinator::value,
     combinator::success,
-    combinator::eof,
+    combinator::value,
     error::ParseError,
     multi::many0,
     multi::many0_count,
@@ -28,19 +28,15 @@ use nom::{
     sequence::pair,
     sequence::tuple,
     sequence::{preceded, terminated},
-    IResult,
-    Parser,
+    IResult, Parser,
 };
 
 use nom_supreme::error::ErrorTree;
+use nom_supreme::final_parser::{final_parser, Location, RecreateContext};
 use nom_supreme::tag::complete::tag;
 use nom_supreme::tag::complete::tag_no_case;
-use nom_supreme::final_parser::{
-    ExtractContext, Location, RecreateContext, final_parser,
-};
 
 use nom_supreme::parser_ext::ParserExt;
-use nom::error::context;
 
 // Addressing modes for LDA
 
@@ -56,16 +52,16 @@ use nom::error::context;
 #[derive(Debug, Clone)]
 enum Operand {
     // Different adressing modes
-    Implied,        //
-    Immediate(u8),  //#$44
-    ZeroPage(u8),   //$44
-    ZeroPageX(u8),  //$44,X
-    Absolute(u16),  //$4400
-    AbsoluteX(u16), //$4400,X
-    AbsoluteY(u16), //$4400,Y
-    IndirectX(u8), //($44,X)
-    IndirectY(u8), //($44),Y
-    Relative(RelativeVal),  //$44
+    Implied,               //
+    Immediate(u8),         //#$44
+    ZeroPage(u8),          //$44
+    ZeroPageX(u8),         //$44,X
+    Absolute(u16),         //$4400
+    AbsoluteX(u16),        //$4400,X
+    AbsoluteY(u16),        //$4400,Y
+    IndirectX(u8),         //($44,X)
+    IndirectY(u8),         //($44),Y
+    Relative(RelativeVal), //$44
 }
 
 // Used for the relative addressing mode, a label points to a 16bit address,
@@ -81,6 +77,7 @@ enum Opcode {
     LDA,
     STA,
     NOP,
+    BNE,
 }
 
 #[derive(Debug)]
@@ -88,7 +85,7 @@ enum Statement {
     Operation(Opcode, Operand),
     // Directives
     Bing,
-    DataBytes(Vec<u8>),
+    //DataBytes(Vec<u8>),
 }
 
 #[derive(Debug)]
@@ -109,8 +106,11 @@ fn parse_program(i: &str) -> IResult<&str, Program, ErrorTree<&str>> {
     // TODO: add support for newlines
     let (i, _) = parse_multispace_comment(i)?;
     let (i, statements) = collect_separated_terminated(
-        parse_decorated_statement, parse_multispace_comment, 
-        pair(parse_multispace_comment, eof)).parse(i)?;
+        parse_decorated_statement,
+        parse_multispace_comment,
+        pair(parse_multispace_comment, eof),
+    )
+    .parse(i)?;
     Ok((i, Program::Program(statements)))
 }
 
@@ -119,15 +119,9 @@ fn parse_program_final(i: &str) -> Result<Program, ErrorTree<&str>> {
     final_parser(parse_program)(i)
 }
 
-fn parse_label(i: &str) -> IResult<&str, &str, ErrorTree<&str>> {
-    let (i, label) = parse_identifier(i)?;
-    let (i, _) = tag(":")(i)?;
-    Ok((i, label))
-}
-
 // A decorated statement might have a label
 fn parse_decorated_statement(i: &str) -> IResult<&str, DecoratedStatement, ErrorTree<&str>> {
-    let (i, maybe_label) = opt(parse_label)(i)?;
+    let (i, maybe_label) = opt(terminated(parse_identifier, char(':')))(i)?;
     let (i, _) = multispace0(i)?;
     let (i, statement) = parse_statement(i)?;
     let decorated_statement = match maybe_label {
@@ -140,18 +134,19 @@ fn parse_decorated_statement(i: &str) -> IResult<&str, DecoratedStatement, Error
 fn parse_statement(i: &str) -> IResult<&str, Statement, ErrorTree<&str>> {
     let (i, _) = space0(i)?;
     // TODO: add parse_operation
-    let (i, statement) = alt((parse_directive.context("directive"), parse_operation.context("operation")))(i)?;
+    let (i, statement) = alt((
+        parse_directive.context("directive"),
+        parse_operation.context("operation"),
+    ))(i)?;
     let (i, _) = alt((parse_comment, value((), space0)))(i)?;
     Ok((i, statement))
 }
 
-
 fn parse_directive(i: &str) -> IResult<&str, Statement, ErrorTree<&str>> {
-    let (i, _) = tag(".")(i)?;
+    let (i, _) = char('.')(i)?;
     // TODO: add directives here with the alt combinator
     parse_bing_chilling(i)
 }
-
 
 // Directives
 
@@ -165,8 +160,10 @@ fn parse_bing_chilling(i: &str) -> IResult<&str, Statement, ErrorTree<&str>> {
 fn parse_operation(i: &str) -> IResult<&str, Statement, ErrorTree<&str>> {
     // Opcode | Operand
     let (i, opcode) = parse_opcode(i)?;
-    let (i, operand) = alt((preceded(space1, parse_operand(opcode.clone())), 
-            success(Operand::Implied)))(i)?;
+    let (i, operand) = alt((
+        preceded(space1, parse_operand(opcode.clone())),
+        success(Operand::Implied),
+    ))(i)?;
 
     Ok((i, Statement::Operation(opcode, operand)))
 }
@@ -174,10 +171,11 @@ fn parse_operation(i: &str) -> IResult<&str, Statement, ErrorTree<&str>> {
 // Operands
 fn parse_operand(opcode: Opcode) -> Box<dyn Fn(&str) -> IResult<&str, Operand, ErrorTree<&str>>> {
     // Match on opcode
-    Box::new(move|i: &str| match opcode {
+    Box::new(move |i: &str| match opcode {
         Opcode::LDA => parse_all_addressing_modes(i),
         Opcode::STA => parse_all_addressing_modes(i),
         Opcode::NOP => parse_implied(i),
+        Opcode::BNE => parse_relative(i),
     })
 }
 
@@ -194,30 +192,49 @@ fn parse_operand(opcode: Opcode) -> Box<dyn Fn(&str) -> IResult<&str, Operand, E
 
 // Parse all addressing modes except for implied 😀
 fn parse_all_addressing_modes(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
-    alt((parse_immediate,
-         parse_absolute_x, parse_absolute_y, parse_absolute,
-         parse_zero_page_x, parse_zero_page,
-         parse_indirect_x, parse_indirect_y))(i)
+    alt((
+        parse_immediate,
+        parse_absolute_x,
+        parse_absolute_y,
+        parse_absolute,
+        parse_zero_page_x,
+        parse_zero_page,
+        parse_indirect_x,
+        parse_indirect_y,
+    ))(i)
 }
 
 fn parse_implied(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
     Ok((i, Operand::Implied))
 }
 
+fn parse_relative(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
+    alt((
+        map_res(parse_u8, |num: u8| {
+            Ok::<Operand, &str>(Operand::Relative(RelativeVal::Number(num)))
+        }),
+        map_res(parse_identifier, |identifier: &str| {
+            Ok::<Operand, &str>(Operand::Relative(RelativeVal::Label(
+                identifier.to_string(),
+            )))
+        }),
+    ))(i)
+}
+
 fn parse_immediate(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
-    let (i, _) = tag("#")(i)?;
+    let (i, _) = char('#')(i)?;
     let (i, val) = parse_u8.context("immediate expecting u8").parse(i)?;
     Ok((i, Operand::Immediate(val)))
 }
 
 fn parse_zero_page(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
-    let (i, _) = tag("@")(i)?;
+    let (i, _) = char('@')(i)?;
     let (i, val) = parse_u8.context("zero page expecting u8").parse(i)?;
     Ok((i, Operand::ZeroPage(val)))
 }
 
 fn parse_zero_page_x(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
-    let (i, _) = tag("@")(i)?;
+    let (i, _) = char('@')(i)?;
     let (i, val) = parse_u8.context("zero page x expecting u8").parse(i)?;
     let (i, _) = parse_trailing_x_y("X")(i)?;
     Ok((i, Operand::ZeroPageX(val)))
@@ -241,18 +258,18 @@ fn parse_absolute_y(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
 }
 
 fn parse_indirect_x(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
-    let (i, _) = tag("(")(i)?;
+    let (i, _) = char('(')(i)?;
     let (i, val) = parse_u8.context("indirect x expecting u8").parse(i)?;
     let (i, _) = parse_trailing_x_y("X")(i)?;
     let (i, _) = space0(i)?;
-    let (i, _) = tag(")")(i)?;
+    let (i, _) = char(')')(i)?;
     Ok((i, Operand::IndirectX(val)))
 }
 
 fn parse_indirect_y(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
-    let (i, _) = tag("(")(i)?;
+    let (i, _) = char('(')(i)?;
     let (i, val) = parse_u8.context("indirect y expecting u8").parse(i)?;
-    let (i, _) = tag(")")(i)?;
+    let (i, _) = char(')')(i)?;
     let (i, _) = parse_trailing_x_y("Y")(i)?;
     let (i, _) = space0(i)?;
     Ok((i, Operand::IndirectY(val)))
@@ -261,10 +278,12 @@ fn parse_indirect_y(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
 //IndirectX(u16), //($44,X)
 //IndirectY(u16), //($44),Y
 
-fn parse_trailing_x_y(x_or_y: &'static str) -> Box<dyn Fn(&str) -> IResult<&str, (), ErrorTree<&str>>> {
-    Box::new(move|i: &str| {
+fn parse_trailing_x_y(
+    x_or_y: &'static str,
+) -> Box<dyn Fn(&str) -> IResult<&str, (), ErrorTree<&str>>> {
+    Box::new(move |i: &str| {
         let (i, _) = space0(i)?;
-        let (i, _) = tag(",")(i)?;
+        let (i, _) = char(',')(i)?;
         let (i, _) = space0(i)?;
         let (i, _) = tag_no_case(x_or_y)(i)?;
         Ok((i, ()))
@@ -277,6 +296,7 @@ fn parse_opcode(i: &str) -> IResult<&str, Opcode, ErrorTree<&str>> {
         value(Opcode::LDA, tag("LDA")),
         value(Opcode::STA, tag("STA")),
         value(Opcode::NOP, tag("NOP")),
+        value(Opcode::BNE, tag("BNE")),
     ))(i)
 }
 
@@ -301,7 +321,7 @@ fn parse_comment<'a, E: ParseError<&'a str>>(i: &'a str) -> IResult<&'a str, (),
 // https://docs.rs/nom/latest/nom/recipes/index.html#hexadecimal
 fn parse_hex(i: &str) -> IResult<&str, &str, ErrorTree<&str>> {
     preceded(
-        tag("$"),
+        char('$'),
         recognize(many1(terminated(
             one_of("0123456789abcdefABCDEF"),
             many0(char('_')),
@@ -311,7 +331,7 @@ fn parse_hex(i: &str) -> IResult<&str, &str, ErrorTree<&str>> {
 
 fn parse_bin(i: &str) -> IResult<&str, &str, ErrorTree<&str>> {
     preceded(
-        tag("%"),
+        char('%'),
         recognize(many1(terminated(one_of("01"), many0(char('_'))))),
     )(i)
 }
@@ -359,7 +379,6 @@ pub fn parse_identifier(i: &str) -> IResult<&str, &str, ErrorTree<&str>> {
     ))(i)
 }
 
-
 fn main() {
     let result = parse_program_final(TEST);
     if let Err(e) = result {
@@ -368,77 +387,70 @@ fn main() {
         get_error_string(e);
     } else {
         println!("Success!");
-        dbg!(result);
+        let _ = dbg!(result);
     }
 }
 
 //TODO: make a string and use it
 use std::error::Error;
-fn get_error_string(error: nom_supreme::error::GenericErrorTree<&str, &str, &str, Box<dyn Error + Send + Sync>>) {
-   match error {
-       nom_supreme::error::GenericErrorTree::Stack { base, contexts } => {
-           println!("Stack");
-           dbg!(base);
-           for context in contexts {
-               dbg!(Location::recreate_context(TEST, context.0));
-               dbg!(context.1);
-           }
-       },
-       nom_supreme::error::GenericErrorTree::Alt(inner_errors) => {
-           println!("Alt");
-           for inner_error in inner_errors {
-               get_error_string(inner_error);
-           }
-       },
-       nom_supreme::error::GenericErrorTree::Base { location, kind } => {
-           println!("Base");
-           dbg!(location, kind);
-       },
-   }
-}
-
-#[test]
-fn test_addressing_modes() {
-    let result = parse_program_final(TEST_ADDRESSING_MODES);
-    match result {
-        Err(error) => { get_error_string(error) ; panic!() },
-        Ok(_) => { 
-            //for statement in statements {
-            //    //TODO: check that every addressing mode is used
-            //}
-        },
+fn get_error_string(
+    error: nom_supreme::error::GenericErrorTree<&str, &str, &str, Box<dyn Error + Send + Sync>>,
+) {
+    match error {
+        nom_supreme::error::GenericErrorTree::Stack { base, contexts } => {
+            println!("Stack");
+            dbg!(base);
+            for context in contexts {
+                dbg!(Location::recreate_context(TEST, context.0));
+                dbg!(context.1);
+            }
+        }
+        nom_supreme::error::GenericErrorTree::Alt(inner_errors) => {
+            println!("Alt");
+            for inner_error in inner_errors {
+                get_error_string(inner_error);
+            }
+        }
+        nom_supreme::error::GenericErrorTree::Base { location, kind } => {
+            println!("Base");
+            dbg!(location, kind);
+        }
     }
 }
 
-#[test]
-fn test_features() {
-    let result = parse_program_final(TEST_FEATURES);
-    match result {
-        Err(error) => { get_error_string(error) ; panic!() },
-        Ok(_) => {},
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_addressing_modes() {
+        let result = super::parse_program_final(TEST_ADDRESSING_MODES);
+        match result {
+            Err(error) => {
+                super::get_error_string(error);
+                panic!()
+            }
+            Ok(_) => {
+                //for statement in statements {
+                //    //TODO: check that every addressing mode is used
+                //}
+            }
+        }
     }
-}
 
-const TEST: &str =
-"wowzers:   NOP
+    #[test]
+    fn test_features() {
+        let result = super::parse_program_final(TEST_FEATURES);
+        match result {
+            Err(error) => {
+                super::get_error_string(error);
+                panic!()
+            }
+            Ok(_) => {}
+        }
+    }
 
-ERROR:      LDA ##$3000
-WOWZERS2:   LDA $2000,X        ; Big comment
-            LDA ($20, X)
-            LDA ($2F), Y
-ZEROPAGEX:  LDA @$FF, X
-            LDA $0000,Y
-lad:        LDA #$30";
-
-const TEST_FEATURES: &str =
-"BingChilling: .bing \"chilling\" ; The directive
-;  Comment                          A comment
- ; Comment                          Another comment
-LDA $30                           ; An instruction
-";
-
-const TEST_ADDRESSING_MODES: &str = 
-"IMPLIED:    NOP
+    const TEST_ADDRESSING_MODES: &str = "IMPLIED:    NOP
+RELATIVE:    BNE $50
+RELATIVE:    BNE IMPLIED
 IMMEDIATE:   LDA #$44
 ZERO_PAGE:   LDA @$44
 ZERO_PAGE_X: LDA @$44,X
@@ -448,7 +460,24 @@ ABSOLUTE_Y:  LDA $4400,Y
 RELATIVE_X:  LDA ($44, X)
 RELATIVE_Y:  LDA ($44), Y
 
-; TODO: add relative addressing modes
+; TODO: add relative addressing modes";
 
+    const TEST_FEATURES: &str = "BingChilling: .bing \"chilling\" ; The directive
+;  Comment                          A comment
+ ; Comment                          Another comment
+LDA $30                           ; An instruction
 ";
+}
 
+const TEST: &str = "wowzers:   NOP
+
+RELATIVE:    BNE $50
+RELATIVE:    BNE IMPLIED
+
+ERROR:      LDA ##$3000
+WOWZERS2:   LDA $2000,X        ; Big comment
+            LDA ($20, X)
+            LDA ($2F), Y
+ZEROPAGEX:  LDA @$FF, X
+            LDA $0000,Y
+lad:        LDA #$30";

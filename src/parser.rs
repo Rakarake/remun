@@ -1,2 +1,1 @@
 // Parser of iNES format
-

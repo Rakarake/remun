@@ -1,7 +1,7 @@
 mod bus;
 mod cpu;
-mod ram;
 mod parser;
+mod ram;
 
 #[cfg(test)]
 mod tests {
@@ -11,4 +11,3 @@ mod tests {
         assert_eq!(result, 4);
     }
 }
-

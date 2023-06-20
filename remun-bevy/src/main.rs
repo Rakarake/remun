@@ -2,7 +2,6 @@ use bevy::prelude::*;
 
 fn main() {
     // Setup emulator
-    
 
     App::new()
         .add_plugins(DefaultPlugins)
@@ -35,4 +34,3 @@ fn debug_overlay_setup(mut commands: Commands, assets: Res<AssetServer>) {
     //    background_color: 3,
     //});
 }
-
