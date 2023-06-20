@@ -62,6 +62,7 @@ enum Operand {
     IndirectX(u8),         //($44,X)
     IndirectY(u8),         //($44),Y
     Relative(RelativeVal), //$44
+    Accumulator,           //A
 }
 
 // Used for the relative addressing mode, a label points to a 16bit address,
@@ -78,6 +79,27 @@ enum Opcode {
     STA,
     NOP,
     BNE,
+    ADC,
+    AND,
+    ASL,
+    LSR,
+    ROL,
+    ROR,
+    BIT,
+    BRK,
+    BPL,
+    BMI,
+    BVC,
+    BVS,
+    BCC,
+    BCS,
+    BEQ,
+    CMP,
+    CPX,
+    CPY,
+    DEC,
+    INC,
+    EOR,
 }
 
 #[derive(Debug)]
@@ -176,6 +198,27 @@ fn parse_operand(opcode: Opcode) -> Box<dyn Fn(&str) -> IResult<&str, Operand, E
         Opcode::STA => parse_all_addressing_modes(i),
         Opcode::NOP => parse_implied(i),
         Opcode::BNE => parse_relative(i),
+        Opcode::ADC => parse_all_addressing_modes(i),
+        Opcode::AND => parse_all_addressing_modes(i),
+        Opcode::ASL => parse_shift_addressing_modes(i),
+        Opcode::LSR => parse_shift_addressing_modes(i),
+        Opcode::ROL => parse_shift_addressing_modes(i),
+        Opcode::ROR => parse_shift_addressing_modes(i),
+        Opcode::BIT => alt((parse_zero_page, parse_absolute))(i),
+        Opcode::BRK => parse_implied(i),
+        Opcode::BPL => parse_relative(i),
+        Opcode::BMI => parse_relative(i),
+        Opcode::BVC => parse_relative(i),
+        Opcode::BVS => parse_relative(i),
+        Opcode::BCC => parse_relative(i),
+        Opcode::BCS => parse_relative(i),
+        Opcode::BEQ => parse_relative(i),
+        Opcode::CMP => parse_all_addressing_modes(i),
+        Opcode::CPX => alt((parse_immediate, parse_zero_page, parse_absolute))(i),
+        Opcode::CPY => alt((parse_immediate, parse_zero_page, parse_absolute))(i),
+        Opcode::DEC => alt((parse_zero_page, parse_zero_page_x, parse_absolute, parse_absolute_x))(i),
+        Opcode::INC => alt((parse_zero_page, parse_zero_page_x, parse_absolute, parse_absolute_x))(i),
+        Opcode::EOR => parse_all_addressing_modes(i),
     })
 }
 
@@ -204,6 +247,17 @@ fn parse_all_addressing_modes(i: &str) -> IResult<&str, Operand, ErrorTree<&str>
     ))(i)
 }
 
+fn parse_shift_addressing_modes(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
+    alt((
+        parse_accumulator,
+        parse_absolute_x,
+        parse_absolute,
+        parse_zero_page_x,
+        parse_zero_page,
+    ))(i)
+}
+
+
 fn parse_implied(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
     Ok((i, Operand::Implied))
 }
@@ -219,6 +273,10 @@ fn parse_relative(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
             )))
         }),
     ))(i)
+}
+
+fn parse_accumulator(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
+    value(Operand::Accumulator, char('A'))(i)
 }
 
 fn parse_immediate(i: &str) -> IResult<&str, Operand, ErrorTree<&str>> {
@@ -297,6 +355,29 @@ fn parse_opcode(i: &str) -> IResult<&str, Opcode, ErrorTree<&str>> {
         value(Opcode::STA, tag("STA")),
         value(Opcode::NOP, tag("NOP")),
         value(Opcode::BNE, tag("BNE")),
+        value(Opcode::ADC, tag("ADC")),
+        value(Opcode::AND, tag("AND")),
+        value(Opcode::ASL, tag("ASL")),
+        value(Opcode::LSR, tag("LSR")),
+        value(Opcode::ROL, tag("ROL")),
+        value(Opcode::ROR, tag("ROR")),
+        value(Opcode::BIT, tag("BIT")),
+        value(Opcode::BRK, tag("BRK")),
+        value(Opcode::BPL, tag("BPL")),
+        value(Opcode::BMI, tag("BMI")),
+        value(Opcode::BVC, tag("BVC")),
+        value(Opcode::BVS, tag("BVS")),
+        value(Opcode::BCC, tag("BCC")),
+        value(Opcode::BCS, tag("BCS")),
+        value(Opcode::BEQ, tag("BEQ")),
+        value(Opcode::CMP, tag("CMP")),
+        alt((
+            value(Opcode::CPX, tag("CPX")),
+            value(Opcode::CPY, tag("CPY")),
+            value(Opcode::DEC, tag("DEC")),
+            value(Opcode::INC, tag("INC")),
+            value(Opcode::EOR, tag("EOR")),
+        ))
     ))(i)
 }
 
@@ -448,7 +529,8 @@ mod tests {
         }
     }
 
-    const TEST_ADDRESSING_MODES: &str = "IMPLIED:    NOP
+    const TEST_ADDRESSING_MODES: &str = "
+IMPLIED:    NOP
 RELATIVE:    BNE $50
 RELATIVE:    BNE IMPLIED
 IMMEDIATE:   LDA #$44
@@ -462,19 +544,22 @@ RELATIVE_Y:  LDA ($44), Y
 
 ; TODO: add relative addressing modes";
 
-    const TEST_FEATURES: &str = "BingChilling: .bing \"chilling\" ; The directive
+    const TEST_FEATURES: &str = "
+BingChilling: .bing \"chilling\" ; The directive
 ;  Comment                          A comment
  ; Comment                          Another comment
 LDA $30                           ; An instruction
-";
+ NOP                              ; Another instruction
+LABEL1: LDA $30                   ; A label";
 }
 
-const TEST: &str = "wowzers:   NOP
+const TEST: &str = "
+wowzers:   NOP
 
 RELATIVE:    BNE $50
 RELATIVE:    BNE IMPLIED
 
-ERROR:      LDA ##$3000
+;ERROR:      LDA ##$3000
 WOWZERS2:   LDA $2000,X        ; Big comment
             LDA ($20, X)
             LDA ($2F), Y
