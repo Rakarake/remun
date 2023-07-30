@@ -3,6 +3,9 @@ name = "remun"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "inesasm"
+
 # Enable a small amount of optimization in debug mode
 [profile.dev]
 opt-level = 1
@@ -12,5 +15,10 @@ opt-level = 1
 opt-level = 3
 
 [workspace]
-members = [ "remun-bevy", "inesasm" ]
+members = [ "remun-bevy", "macros" ]
+
+[dependencies]
+macros = { path = "macros" }
+nom = "*"
+nom-supreme = "*"
 

@@ -38,6 +38,11 @@ use nom_supreme::tag::complete::tag_no_case;
 
 use nom_supreme::parser_ext::ParserExt;
 
+// The amazing macro
+use macros::funny_number;
+
+const AWOGA: i32 = funny_number!();
+
 // Addressing modes for LDA
 
 //Immediate     LDA #$44      $A9  2   2
