@@ -40,8 +40,10 @@ use nom_supreme::parser_ext::ParserExt;
 
 // The amazing macro
 use macros::funny_number;
+use macros::from_table;
 
-const AWOGA: i32 = funny_number!();
+funny_number!();
+const X: i32 = from_table!();
 
 // Addressing modes for LDA
 
