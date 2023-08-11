@@ -2161,6 +2161,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "nes_primitives"
+version = "0.1.0"
+
+[[package]]
 name = "nix"
 version = "0.24.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2639,6 +2643,7 @@ name = "remun"
 version = "0.1.0"
 dependencies = [
  "macros",
+ "nes_primitives",
  "nom",
  "nom-supreme",
 ]

@@ -42,35 +42,11 @@ use nom_supreme::parser_ext::ParserExt;
 use macros::funny_number;
 use macros::from_table;
 
-funny_number!();
-const X: i32 = from_table!();
+//use crate::nes_primitives::Opcodes;
+//use crate::nes_primitives::Operands;
 
-// Addressing modes for LDA
-
-//Immediate     LDA #$44      $A9  2   2
-//Zero Page     LDA $44       $A5  2   3
-//Zero Page,X   LDA $44,X     $B5  2   4
-//Absolute      LDA $4400     $AD  3   4
-//Absolute,X    LDA $4400,X   $BD  3   4+
-//Absolute,Y    LDA $4400,Y   $B9  3   4+
-//Indirect,X    LDA ($44,X)   $A1  2   6
-//Indirect,Y    LDA ($44),Y   $B1  2   5+
-
-#[derive(Debug, Clone)]
-enum Operand {
-    // Different adressing modes
-    Implied,               //
-    Immediate(u8),         //#$44
-    ZeroPage(u8),          //$44
-    ZeroPageX(u8),         //$44,X
-    Absolute(u16),         //$4400
-    AbsoluteX(u16),        //$4400,X
-    AbsoluteY(u16),        //$4400,Y
-    IndirectX(u8),         //($44,X)
-    IndirectY(u8),         //($44),Y
-    Relative(RelativeVal), //$44
-    Accumulator,           //A
-}
+//funny_number!();
+//const X: i32 = from_table!();
 
 // Used for the relative addressing mode, a label points to a 16bit address,
 // it is converted to a relative 8bit number later.
@@ -78,35 +54,6 @@ enum Operand {
 enum RelativeVal {
     Label(String),
     Number(u8),
-}
-
-#[derive(Debug, Clone)]
-enum Opcode {
-    LDA,
-    STA,
-    NOP,
-    BNE,
-    ADC,
-    AND,
-    ASL,
-    LSR,
-    ROL,
-    ROR,
-    BIT,
-    BRK,
-    BPL,
-    BMI,
-    BVC,
-    BVS,
-    BCC,
-    BCS,
-    BEQ,
-    CMP,
-    CPX,
-    CPY,
-    DEC,
-    INC,
-    EOR,
 }
 
 #[derive(Debug)]

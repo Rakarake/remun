@@ -15,10 +15,11 @@ opt-level = 1
 opt-level = 3
 
 [workspace]
-members = [ "remun-bevy", "macros" ]
+members = [ "remun-bevy", "macros", "nes_primitives" ]
 
 [dependencies]
 macros = { path = "macros" }
+nes_primitives = { path= "nes_primitives" }
 nom = "*"
 nom-supreme = "*"
 
