@@ -1,5 +1,5 @@
 #[derive(Debug, Clone)]
-enum Operand {
+pub enum Operand {
     // Different adressing modes
     Implied,               //
     Immediate(u8),         //#$44
@@ -14,8 +14,16 @@ enum Operand {
     Accumulator,           //A
 }
 
+// Used for the relative addressing mode, a label points to a 16bit address,
+// it is converted to a relative 8bit number later.
 #[derive(Debug, Clone)]
-enum Opcode {
+pub enum RelativeVal {
+    Label(String),
+    Number(u8),
+}
+
+#[derive(Debug, Clone)]
+pub enum Opcode {
     LDA,
     STA,
     NOP,
