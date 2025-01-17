@@ -39,11 +39,12 @@ use nom_supreme::tag::complete::tag_no_case;
 use nom_supreme::parser_ext::ParserExt;
 
 // The amazing macro
-use macros::funny_number;
-use macros::from_table;
+//use macros::funny_number;
+//use macros::from_table;
 
-//use crate::nes_primitives::Opcodes;
-//use crate::nes_primitives::Operands;
+use nes_primitives::Opcode;
+use nes_primitives::Operand;
+use nes_primitives::RelativeVal;
 
 //funny_number!();
 //const X: i32 = from_table!();

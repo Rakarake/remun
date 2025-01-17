@@ -1,5 +1,5 @@
 #[derive(Debug, Clone)]
-enum Operand {
+pub enum Operand {
     // Different adressing modes
     Implied,               //
     Immediate(Value<u8>),  //#$44
@@ -14,6 +14,7 @@ enum Operand {
     Accumulator,           //A
 }
 
+<<<<<<< HEAD:nes_primitives/src/main.rs
 // A value of an operand
 #[derive(Debug, Clone)]
 enum Value<T> {
@@ -29,8 +30,18 @@ enum RelativeVal {
     Label(String),
 }
 
+=======
+// Used for the relative addressing mode, a label points to a 16bit address,
+// it is converted to a relative 8bit number later.
+>>>>>>> 39bda1df0e07b8a2d562c7dbe0dfa0f83e550516:nes_primitives/src/lib.rs
 #[derive(Debug, Clone)]
-enum Opcode {
+pub enum RelativeVal {
+    Label(String),
+    Number(u8),
+}
+
+#[derive(Debug, Clone)]
+pub enum Opcode {
     LDA,
     STA,
     NOP,
