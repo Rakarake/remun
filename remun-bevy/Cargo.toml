@@ -1,9 +1,0 @@
-[package]
-name = "remun-bevy"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-remun = { path = ".." }
-bevy = { version = "0.10.1", features = ["wayland", "dynamic_linking"] }
-
