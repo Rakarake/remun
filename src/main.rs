@@ -29,7 +29,18 @@ impl Opcode {
 
 // Addressing modes
 enum AddressingMode {
-    Abs,
+    IMPL,  // nuh uh
+    REL,   // $FF
+    ABS,   // $FFFF
+    ABS_X, // $FFFF,X
+    ABS_Y, // $FFFF,Y
+    IMM,   // #FF
+    IND,   // ($FFFF)
+    X_IND, // ($FF,X)
+    IND_Y, // ($FF),Y
+    ZPG,   // $FF
+    ZPG_X, // $FF,X
+    ZPG_Y, // $FF,Y
 }
 
 impl AddressingMode {
@@ -49,20 +60,35 @@ struct Instruction {
 
 const W: u8 = another_nord_w!();
 
+macro_rules! tabalize {
+    () => {
+        
+    };
+}
 
-BRK impl ; ORA X,ind ; JAM    ; SLO X,ind ; NOP zpg   ; ORA zpg   ; ASL zpg   ; SLO zpg   ; PHP impl ; ORA #     ;  ASL A    ; ANC #     ; NOP abs   ; ORA abs   ; ASL abs   ; SLO abs
-BPL rel  ; ORA ind,Y ; JAM    ; SLO ind,Y ; NOP zpg,X ; ORA zpg,X ; ASL zpg,X ; SLO zpg,X ; CLC impl ; ORA abs,Y ;  NOP impl ; SLO abs,Y ; NOP abs,X ; ORA abs,X ; ASL abs,X ; SLO abs,X
-JSR abs  ; AND X,ind ; JAM    ; RLA X,ind ; BIT zpg   ; AND zpg   ; ROL zpg   ; RLA zpg   ; PLP impl ; AND #     ;  ROL A    ; ANC #     ; BIT abs   ; AND abs   ; ROL abs   ; RLA abs
-BMI rel  ; AND ind,Y ; JAM    ; RLA ind,Y ; NOP zpg,X ; AND zpg,X ; ROL zpg,X ; RLA zpg,X ; SEC impl ; AND abs,Y ;  NOP impl ; RLA abs,Y ; NOP abs,X ; AND abs,X ; ROL abs,X ; RLA abs,X
-RTI impl ; EOR X,ind ; JAM    ; SRE X,ind ; NOP zpg   ; EOR zpg   ; LSR zpg   ; SRE zpg   ; PHA impl ; EOR #     ;  LSR A    ; ALR #     ; JMP abs   ; EOR abs   ; LSR abs   ; SRE abs
-BVC rel  ; EOR ind,Y ; JAM    ; SRE ind,Y ; NOP zpg,X ; EOR zpg,X ; LSR zpg,X ; SRE zpg,X ; CLI impl ; EOR abs,Y ;  NOP impl ; SRE abs,Y ; NOP abs,X ; EOR abs,X ; LSR abs,X ; SRE abs,X
-RTS impl ; ADC X,ind ; JAM    ; RRA X,ind ; NOP zpg   ; ADC zpg   ; ROR zpg   ; RRA zpg   ; PLA impl ; ADC #     ;  ROR A    ; ARR #     ; JMP ind   ; ADC abs   ; ROR abs   ; RRA abs
-BVS rel  ; ADC ind,Y ; JAM    ; RRA ind,Y ; NOP zpg,X ; ADC zpg,X ; ROR zpg,X ; RRA zpg,X ; SEI impl ; ADC abs,Y ;  NOP impl ; RRA abs,Y ; NOP abs,X ; ADC abs,X ; ROR abs,X ; RRA abs,X
-NOP #    ; STA X,ind ; NOP #  ; SAX X,ind ; STY zpg   ; STA zpg   ; STX zpg   ; SAX zpg   ; DEY impl ; NOP #     ;  TXA impl ; ANE #     ; STY abs   ; STA abs   ; STX abs   ; SAX abs
-BCC rel  ; STA ind,Y ; JAM    ; SHA ind,Y ; STY zpg,X ; STA zpg,X ; STX zpg,Y ; SAX zpg,Y ; TYA impl ; STA abs,Y ;  TXS impl ; TAS abs,Y ; SHY abs,X ; STA abs,X ; SHX abs,Y ; SHA abs,Y
-LDY #    ; LDA X,ind ; LDX #  ; LAX X,ind ; LDY zpg   ; LDA zpg   ; LDX zpg   ; LAX zpg   ; TAY impl ; LDA #     ;  TAX impl ; LXA #     ; LDY abs   ; LDA abs   ; LDX abs   ; LAX abs
-BCS rel  ; LDA ind,Y ; JAM    ; LAX ind,Y ; LDY zpg,X ; LDA zpg,X ; LDX zpg,Y ; LAX zpg,Y ; CLV impl ; LDA abs,Y ;  TSX impl ; LAS abs,Y ; LDY abs,X ; LDA abs,X ; LDX abs,Y ; LAX abs,Y
-CPY #    ; CMP X,ind ; NOP #  ; DCP X,ind ; CPY zpg   ; CMP zpg   ; DEC zpg   ; DCP zpg   ; INY impl ; CMP #     ;  DEX impl ; SBX #     ; CPY abs   ; CMP abs   ; DEC abs   ; DCP abs
-BNE rel  ; CMP ind,Y ; JAM    ; DCP ind,Y ; NOP zpg,X ; CMP zpg,X ; DEC zpg,X ; DCP zpg,X ; CLD impl ; CMP abs,Y ;  NOP impl ; DCP abs,Y ; NOP abs,X ; CMP abs,X ; DEC abs,X ; DCP abs,X
-CPX #    ; SBC X,ind ; NOP #  ; ISC X,ind ; CPX zpg   ; SBC zpg   ; INC zpg   ; ISC zpg   ; INX impl ; SBC #     ;  NOP impl ; USBC #    ; CPX abs   ; SBC abs   ; INC abs   ; ISC abs
-BEQ rel  ; SBC ind,Y ; JAM    ; ISC ind,Y ; NOP zpg,X ; SBC zpg,X ; INC zpg,X ; ISC zpg,X ; SED impl ; SBC abs,Y ;  NOP impl ; ISC abs,Y ; NOP abs,X ; SBC abs,X ; INC abs,X ; ISC abs,X
+mod instruction_stuff {
+    use crate::AddressingMode::*;
+    use crate::AddressingMode;
+    use crate::Instruction::*;
+    use crate::Instruction;
+
+    const INSTRUCTIONS: [Instruction; 256] = [
+    BRK impl ; ORA X,ind ; JAM   ; SLO X,ind ; NOP zpg   ; ORA zpg   ; ASL zpg   ; SLO zpg   ; PHP impl ; ORA #     ;  ASL A    ; ANC #     ; NOP abs   ; ORA abs   ; ASL abs   ; SLO abs   ;
+    BPL rel  ; ORA ind_Y ; JAM   ; SLO ind_Y ; NOP zpg_X ; ORA zpg_X ; ASL zpg_X ; SLO zpg_X ; CLC impl ; ORA abs_Y ;  NOP impl ; SLO abs_Y ; NOP abs_X ; ORA abs_X ; ASL abs_X ; SLO abs_X ;
+    JSR abs  ; AND X,ind ; JAM   ; RLA X,ind ; BIT zpg   ; AND zpg   ; ROL zpg   ; RLA zpg   ; PLP impl ; AND #     ;  ROL A    ; ANC #     ; BIT abs   ; AND abs   ; ROL abs   ; RLA abs   ;
+    BMI rel  ; AND ind_Y ; JAM   ; RLA ind_Y ; NOP zpg_X ; AND zpg_X ; ROL zpg_X ; RLA zpg_X ; SEC impl ; AND abs_Y ;  NOP impl ; RLA abs_Y ; NOP abs_X ; AND abs_X ; ROL abs_X ; RLA abs_X ;
+    RTI impl ; EOR X,ind ; JAM   ; SRE X,ind ; NOP zpg   ; EOR zpg   ; LSR zpg   ; SRE zpg   ; PHA impl ; EOR #     ;  LSR A    ; ALR #     ; JMP abs   ; EOR abs   ; LSR abs   ; SRE abs   ;
+    BVC rel  ; EOR ind_Y ; JAM   ; SRE ind_Y ; NOP zpg_X ; EOR zpg_X ; LSR zpg_X ; SRE zpg_X ; CLI impl ; EOR abs_Y ;  NOP impl ; SRE abs_Y ; NOP abs_X ; EOR abs_X ; LSR abs_X ; SRE abs_X ;
+    RTS impl ; ADC X,ind ; JAM   ; RRA X,ind ; NOP zpg   ; ADC zpg   ; ROR zpg   ; RRA zpg   ; PLA impl ; ADC #     ;  ROR A    ; ARR #     ; JMP ind   ; ADC abs   ; ROR abs   ; RRA abs   ;
+    BVS rel  ; ADC ind_Y ; JAM   ; RRA ind_Y ; NOP zpg_X ; ADC zpg_X ; ROR zpg_X ; RRA zpg_X ; SEI impl ; ADC abs_Y ;  NOP impl ; RRA abs_Y ; NOP abs_X ; ADC abs_X ; ROR abs_X ; RRA abs_X ;
+    NOP #    ; STA X,ind ; NOP # ; SAX X,ind ; STY zpg   ; STA zpg   ; STX zpg   ; SAX zpg   ; DEY impl ; NOP #     ;  TXA impl ; ANE #     ; STY abs   ; STA abs   ; STX abs   ; SAX abs   ;
+    BCC rel  ; STA ind_Y ; JAM   ; SHA ind_Y ; STY zpg_X ; STA zpg_X ; STX zpg_Y ; SAX zpg_Y ; TYA impl ; STA abs_Y ;  TXS impl ; TAS abs_Y ; SHY abs_X ; STA abs_X ; SHX abs_Y ; SHA abs_Y ;
+    LDY #    ; LDA X,ind ; LDX # ; LAX X,ind ; LDY zpg   ; LDA zpg   ; LDX zpg   ; LAX zpg   ; TAY impl ; LDA #     ;  TAX impl ; LXA #     ; LDY abs   ; LDA abs   ; LDX abs   ; LAX abs   ;
+    BCS rel  ; LDA ind_Y ; JAM   ; LAX ind_Y ; LDY zpg_X ; LDA zpg_X ; LDX zpg_Y ; LAX zpg_Y ; CLV impl ; LDA abs_Y ;  TSX impl ; LAS abs_Y ; LDY abs_X ; LDA abs_X ; LDX abs_Y ; LAX abs_Y ;
+    CPY #    ; CMP X,ind ; NOP # ; DCP X,ind ; CPY zpg   ; CMP zpg   ; DEC zpg   ; DCP zpg   ; INY impl ; CMP #     ;  DEX impl ; SBX #     ; CPY abs   ; CMP abs   ; DEC abs   ; DCP abs   ;
+    BNE rel  ; CMP ind_Y ; JAM   ; DCP ind_Y ; NOP zpg_X ; CMP zpg_X ; DEC zpg_X ; DCP zpg_X ; CLD impl ; CMP abs_Y ;  NOP impl ; DCP abs_Y ; NOP abs_X ; CMP abs_X ; DEC abs_X ; DCP abs_X ;
+    CPX #    ; SBC X,ind ; NOP # ; ISC X,ind ; CPX zpg   ; SBC zpg   ; INC zpg   ; ISC zpg   ; INX impl ; SBC #     ;  NOP impl ; USBC #    ; CPX abs   ; SBC abs   ; INC abs   ; ISC abs   ;
+    BEQ rel  ; SBC ind_Y ; JAM   ; ISC ind_Y ; NOP zpg_X ; SBC zpg_X ; INC zpg_X ; ISC zpg_X ; SED impl ; SBC abs_Y ;  NOP impl ; ISC abs_Y ; NOP abs_X ; SBC abs_X ; INC abs_X ; ISC abs_X ;
+    ];
+}
+
