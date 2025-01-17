@@ -19,7 +19,7 @@ members = [ "remun-bevy", "macros", "nes_primitives" ]
 
 [dependencies]
 macros = { path = "macros" }
-nes_primitives = { path= "nes_primitives" }
+nes_primitives = { path = "nes_primitives" }
 nom = "*"
 nom-supreme = "*"
 

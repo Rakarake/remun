@@ -2,16 +2,31 @@
 enum Operand {
     // Different adressing modes
     Implied,               //
-    Immediate(u8),         //#$44
-    ZeroPage(u8),          //$44
-    ZeroPageX(u8),         //$44,X
-    Absolute(u16),         //$4400
-    AbsoluteX(u16),        //$4400,X
-    AbsoluteY(u16),        //$4400,Y
-    IndirectX(u8),         //($44,X)
-    IndirectY(u8),         //($44),Y
+    Immediate(Value<u8>),  //#$44
+    ZeroPage(Value<u8>),   //$44
+    ZeroPageX(Value<u8>),  //$44,X
+    Absolute(Value<u16>),  //$4400
+    AbsoluteX(Value<u16>), //$4400,X
+    AbsoluteY(Value<u16>), //$4400,Y
+    IndirectX(Value<u8>),  //($44,X)
+    IndirectY(Value<u8>),  //($44),Y
     Relative(RelativeVal), //$44
     Accumulator,           //A
+}
+
+// A value of an operand
+#[derive(Debug, Clone)]
+enum Value<T> {
+    Number(T),
+    Label(String),
+}
+
+// Used for the relative addressing mode, a label points to a 16bit address,
+// it is converted to a relative 8bit number later.
+#[derive(Debug, Clone)]
+enum RelativeVal {
+    Number(u8),
+    Label(String),
 }
 
 #[derive(Debug, Clone)]

@@ -48,14 +48,6 @@ use macros::from_table;
 //funny_number!();
 //const X: i32 = from_table!();
 
-// Used for the relative addressing mode, a label points to a 16bit address,
-// it is converted to a relative 8bit number later.
-#[derive(Debug, Clone)]
-enum RelativeVal {
-    Label(String),
-    Number(u8),
-}
-
 #[derive(Debug)]
 enum Statement {
     Operation(Opcode, Operand),
