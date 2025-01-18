@@ -6,8 +6,7 @@ macro_rules! another_nord_w {
 
 
 fn main() {
-    println!("Hello, world!");
-    let x = stringify!(hello);
+    println!("{:?}", instructions::INSTRUCTIONS);
 }
 
 struct State {
@@ -18,6 +17,7 @@ struct State {
 // Instruction lookup
 
 // Opcode
+#[derive(Debug, PartialEq, Eq)]
 enum Opcode {
     ADC,
     AND,
@@ -107,6 +107,7 @@ impl Opcode {
 }
 
 // Addressing modes
+#[derive(Debug, PartialEq, Eq)]
 enum AddressingMode {
     IMPL,  // nuh uh
     A,     // accumulator
@@ -130,6 +131,7 @@ impl AddressingMode {
 }
 
 // Instructions
+#[derive(Debug, PartialEq, Eq)]
 struct Instruction {
     opcode: Opcode,
     addressing_mode: AddressingMode,
@@ -141,7 +143,7 @@ struct Instruction {
 
 const W: u8 = another_nord_w!();
 
-mod instruction_stuff {
+mod instructions {
     use crate::Opcode::*;
     use crate::Opcode;
     use crate::AddressingMode::*;
@@ -155,7 +157,7 @@ mod instruction_stuff {
     }
 
     // Zoom out to see properly :)
-    const INSTRUCTIONS: [Instruction; 256] = tabalize! [
+    pub const INSTRUCTIONS: [Instruction; 256] = tabalize! [
         BRK,IMPL ; ORA,X_IND ; JAM,J   ; SLO,X_IND ; NOP,ZPG   ; ORA,ZPG   ; ASL,ZPG   ; SLO,ZPG   ; PHP,IMPL ; ORA,IMM   ; ASL,A    ; ANC,IMM   ; NOP,ABS   ; ORA,ABS   ; ASL,ABS   ; SLO,ABS   ;
         BPL,REL  ; ORA,IND_Y ; JAM,J   ; SLO,IND_Y ; NOP,ZPG_X ; ORA,ZPG_X ; ASL,ZPG_X ; SLO,ZPG_X ; CLC,IMPL ; ORA,ABS_Y ; NOP,IMPL ; SLO,ABS_Y ; NOP,ABS_X ; ORA,ABS_X ; ASL,ABS_X ; SLO,ABS_X ;
         JSR,ABS  ; AND,X_IND ; JAM,J   ; RLA,X_IND ; BIT,ZPG   ; AND,ZPG   ; ROL,ZPG   ; RLA,ZPG   ; PLP,IMPL ; AND,IMM   ; ROL,A    ; ANC,IMM   ; BIT,ABS   ; AND,ABS   ; ROL,ABS   ; RLA,ABS   ;
