@@ -20,13 +20,14 @@ impl Range {
 const RAM_RANGE: Range = Range(0x0000, 0x0100);
 
 struct State {
-    pc: u16,
-    a: u8,
-    x: u8,
-    y: u8,
-    sr: u8,
-    sp: u8,
-    ram: [u8; 0x0800],  // $0000-$07FF, 2KiB
+    pc: u16,            // Program counter
+    a: u8,              // Accumulator register
+    x: u8,              // X register
+    y: u8,              // Y register
+    sr: u8,             // Status register
+    sp: u8,             // Stack pointer
+    cycles: u64,        // Number of cycles that have passed
+    ram: [u8; 0x0800],  // System RAM: $0000-$07FF, 2KiB
 }
 
 impl State {
@@ -50,6 +51,7 @@ impl State {
 // Instruction lookup
 
 // Opcode
+#[allow(non_snake_case)]
 #[derive(Debug, PartialEq, Eq)]
 enum Opcode {
     ADC,
@@ -140,6 +142,7 @@ impl Opcode {
 }
 
 // Addressing modes
+#[allow(non_snake_case)]
 #[derive(Debug, PartialEq, Eq)]
 enum AddressingMode {
     IMPL,  // nuh uh
@@ -186,7 +189,7 @@ impl AddressingMode {
                 state.pc += 1;
                 let hi = state.read(state.pc);
                 state.pc += 1;
-                Address(lo as u16 + hi as u16 * 0x100)
+                Address(lo as u16 + ((hi as u16) << 0x10))
             },
             ABS_X => {
                 state.pc += 1;
@@ -200,7 +203,54 @@ impl AddressingMode {
                 state.pc += 1;
                 Address(lo as u16 + state.y as u16)
             },
-            _ => unimplemented!("whuh?"),
+            REl => {
+                state.pc += 1;
+                let lo = state.read(state.pc);
+                state.pc += 1;
+                Address(state.pc + lo as u16)
+            },
+            ZPG => {
+                state.pc += 1;
+                let lo = state.read(state.pc);
+                state.pc += 1;
+                Address(lo as u16)
+            },
+            ZPG_X => {
+                state.pc += 1;
+                let lo = state.read(state.pc);
+                state.pc += 1;
+                Address(lo as u16 + state.x as u16)
+            },
+            ZPG_Y => {
+                state.pc += 1;
+                let lo = state.read(state.pc);
+                state.pc += 1;
+                Address(lo as u16 + state.y as u16)
+            },
+            IND => {
+                state.pc += 1;
+                let lo = state.read(state.pc);
+                state.pc += 1;
+                let hi = state.read(state.pc);
+                state.pc += 1;
+                let pointer = (lo as u16 + (((hi as u16) << 0x10))) as usize;
+                Address(state.ram[pointer] as u16 + ((state.ram[pointer + 1] as u16) << 0x10))
+            },
+            X_IND => {
+                state.pc += 1;
+                let lo = state.read(state.pc);
+                state.pc += 1;
+                let pointer = (lo as u16 + state.x as u16) as usize;
+                Address(state.ram[pointer] as u16 + ((state.ram[pointer + 1] as u16) << 0x10))
+            },
+            IND_Y => {
+                state.pc += 1;
+                let lo = state.read(state.pc);
+                state.pc += 1;
+                let pointer = lo as usize;
+                Address(state.ram[pointer] as u16 + ((state.ram[pointer + 1] as u16) << 0x10) + state.y as u16)
+            },
+            J => unimplemented!(),
         }
     }
 }
