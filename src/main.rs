@@ -9,9 +9,42 @@ fn main() {
     println!("{:?}", instructions::INSTRUCTIONS);
 }
 
+/// `0`: inclusive, `1`: exclusive
+struct Range(u16, u16);
+impl Range {
+    fn contains(&self, value: u16) -> bool {
+        value >= self.0 && value < self.1
+    }
+}
+
+const RAM_RANGE: Range = Range(0x0000, 0x0100);
+
 struct State {
     pc: u16,
     a: u8,
+    x: u8,
+    y: u8,
+    sr: u8,
+    sp: u8,
+    ram: [u8; 0x0800],  // $0000-$07FF, 2KiB
+}
+
+impl State {
+    fn read(&mut self, address: u16) -> u8 {
+        if RAM_RANGE.contains(address) {
+            return self.ram[address as usize];
+        } else {
+            unimplemented!()
+        }
+        0
+    }
+    fn write(&mut self, address: u16, value: u8) {
+        if address < 0x0800 {
+            self.ram[address as usize] = value;
+        } else {
+            unimplemented!()
+        }
+    }
 }
 
 // Instruction lookup
@@ -113,20 +146,62 @@ enum AddressingMode {
     A,     // accumulator
     IMM,   // #FF
     REL,   // $FF
-    ABS,   // $FFFF
-    ABS_X, // $FFFF,X
-    ABS_Y, // $FFFF,Y
-    IND,   // ($FFFF)
-    X_IND, // ($FF,X)
-    IND_Y, // ($FF),Y
-    ZPG,   // $FF
-    ZPG_X, // $FF,X
-    ZPG_Y, // $FF,Y
+    ABS,   // $LOHI
+    ABS_X, // $LOHI,X
+    ABS_Y, // $LOHI,Y
+    IND,   // ($LOHI)
+    X_IND, // ($LO,X)
+    IND_Y, // ($LO),Y
+    ZPG,   // $LO
+    ZPG_X, // $LO,X
+    ZPG_Y, // $LO,Y
     J,     // jam :(
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum MemoryTarget {
+    Address(u16),
+    Accumulator,
+    Impl,
+}
+
 impl AddressingMode {
-    fn run(&self, state: &mut State) {
+    /// Increases PC, returns the memory target/adress for opcode
+    /// to work on.
+    fn run(&self, state: &mut State, instruction: u8) -> MemoryTarget {
+        use AddressingMode::*;
+        use MemoryTarget::*;
+        match self {
+            IMPL => Impl,
+            A => Accumulator,
+            IMM => {
+                state.pc += 1;
+                let a = Address(state.pc);
+                state.pc += 1;
+                a
+            },
+            ABS => {
+                state.pc += 1;
+                let lo = state.read(state.pc);
+                state.pc += 1;
+                let hi = state.read(state.pc);
+                state.pc += 1;
+                Address(lo as u16 + hi as u16 * 0x100)
+            },
+            ABS_X => {
+                state.pc += 1;
+                let lo = state.read(state.pc);
+                state.pc += 1;
+                Address(lo as u16 + state.x as u16)
+            },
+            ABS_Y => {
+                state.pc += 1;
+                let lo = state.read(state.pc);
+                state.pc += 1;
+                Address(lo as u16 + state.y as u16)
+            },
+            _ => unimplemented!("whuh?"),
+        }
     }
 }
 
@@ -137,9 +212,6 @@ struct Instruction {
     addressing_mode: AddressingMode,
     //cycles: u8,
 }
-
-//const INSTRUCTIONS: [Instruction; 256] = [
-//];
 
 const W: u8 = another_nord_w!();
 
