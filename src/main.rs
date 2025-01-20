@@ -137,7 +137,27 @@ enum Opcode {
 }
 
 impl Opcode {
-    fn run(&self, state: &mut State) {
+    /// Expects pc to be at next instruction
+    fn run(&self, state: &mut State, memory_target: MemoryTarget) {
+        use Opcode::*;
+        use MemoryTarget::*;
+        match memory_target {
+            Address(addr) => {
+                match self {
+                    LDA => {
+                        state.a = state.read(addr);
+                    },
+                    STA => {
+                        state.write(addr, state.a);
+                    },
+                    _ => unimplemented!()
+                }
+            },
+            Accumulator => {
+            },
+            Impl => {
+            },
+        }
     }
 }
 
@@ -169,6 +189,7 @@ enum MemoryTarget {
 }
 
 impl AddressingMode {
+    // TODO implement number of cycles
     /// Increases PC, returns the memory target/adress for opcode
     /// to work on.
     fn run(&self, state: &mut State, instruction: u8) -> MemoryTarget {
