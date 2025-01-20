@@ -1,8 +1,14 @@
+mod opcodes;
+mod addressing_modes;
 mod instructions;
 
+use opcodes::Opcode;
+use addressing_modes::AddressingMode;
+use instructions::Instruction;
+
 fn main() {
-    use Opcode::*;
-    use AddressingMode::*;
+    use opcodes::Opcode::*;
+    use addressing_modes::AddressingMode::*;
     use Operand::*;
     let test_program: Vec<u8> = [
         INSTR(LDA, IMM, U8(0x02))
@@ -120,247 +126,11 @@ impl State {
     }
 }
 
-// Instruction lookup
-
-// Opcode
-#[allow(non_snake_case)]
-#[derive(Debug, PartialEq, Eq, Clone)]
-enum Opcode {
-    ADC,
-    AND,
-    ASL,
-    BCC,
-    BCS,
-    BEQ,
-    BIT,
-    BMI,
-    BNE,
-    BPL,
-    BRK,
-    BVC,
-    BVS,
-    CLC,
-    CLD,
-    CLI,
-    CLV,
-    CMP,
-    CPX,
-    CPY,
-    DEC,
-    DEX,
-    DEY,
-    EOR,
-    INC,
-    INX,
-    INY,
-    JMP,
-    JSR,
-    LDA,
-    LDX,
-    LDY,
-    LSR,
-    NOP,
-    ORA,
-    PHA,
-    PHP,
-    PLA,
-    PLP,
-    ROL,
-    ROR,
-    RTI,
-    RTS,
-    SBC,
-    SEC,
-    SED,
-    SEI,
-    STA,
-    STX,
-    STY,
-    TAX,
-    TAY,
-    TSX,
-    TXA,
-    TXS,
-    TYA,
-
-    // Illegal opcodes
-    ALR,
-    ANC,
-    ANE,
-    ARR,
-    DCP,
-    ISC,
-    LAS,
-    LAX,
-    LXA,
-    RLA,
-    RRA,
-    SAX,
-    SBX,
-    SHA,
-    SHX,
-    SHY,
-    SLO,
-    SRE,
-    TAS,
-    USBC,
-    USB,
-    JAM,
-}
-
-impl Opcode {
-    /// Expects pc to be at next instruction
-    fn run(&self, state: &mut State, memory_target: MemoryTarget) {
-        use Opcode::*;
-        use MemoryTarget::*;
-        match memory_target {
-            Address(addr) => {
-                match self {
-                    LDA => {
-                        let val = state.read(addr);
-                        state.a = val;
-                        state.sr = (val == 0) as u8;
-                    },
-                    STA => {
-                        state.write(addr, state.a);
-                    },
-                    _ => unimplemented!()
-                }
-            },
-            Accumulator => {
-                match self {
-                    _ => unimplemented!()
-                }
-            },
-            Impl => {
-                match self {
-                    _ => unimplemented!()
-                }
-            },
-        }
-    }
-}
-
-// Addressing modes
-#[allow(non_snake_case)]
-#[derive(Debug, PartialEq, Eq, Clone)]
-enum AddressingMode {
-    IMPL,  // nuh uh
-    A,     // accumulator
-    IMM,   // #FF
-    REL,   // $FF
-    ABS,   // $LOHI
-    ABS_X, // $LOHI,X
-    ABS_Y, // $LOHI,Y
-    IND,   // ($LOHI)
-    X_IND, // ($LO,X)
-    IND_Y, // ($LO),Y
-    ZPG,   // $LO
-    ZPG_X, // $LO,X
-    ZPG_Y, // $LO,Y
-    J,     // jam :(
-}
-
+/// An addressing mode addresses memory, one of these.
 #[derive(Debug, PartialEq, Eq)]
 enum MemoryTarget {
     Address(u16),
     Accumulator,
     Impl,
-}
-
-impl AddressingMode {
-    // TODO implement number of cycles
-    /// Increases PC, returns the memory target/adress for opcode
-    /// to work on.
-    fn run(&self, state: &mut State) -> MemoryTarget {
-        use AddressingMode::*;
-        use MemoryTarget::*;
-        match self {
-            IMPL => Impl,
-            A => Accumulator,
-            IMM => {
-                state.pc += 1;
-                let a = Address(state.pc);
-                state.pc += 1;
-                a
-            },
-            ABS => {
-                state.pc += 1;
-                let lo = state.read(state.pc);
-                state.pc += 1;
-                let hi = state.read(state.pc);
-                state.pc += 1;
-                Address(lo as u16 + ((hi as u16) << 8))
-            },
-            ABS_X => {
-                state.pc += 1;
-                let lo = state.read(state.pc);
-                state.pc += 1;
-                Address(lo as u16 + state.x as u16)
-            },
-            ABS_Y => {
-                state.pc += 1;
-                let lo = state.read(state.pc);
-                state.pc += 1;
-                Address(lo as u16 + state.y as u16)
-            },
-            REl => {
-                state.pc += 1;
-                let lo = state.read(state.pc);
-                state.pc += 1;
-                Address(state.pc + lo as u16)
-            },
-            ZPG => {
-                state.pc += 1;
-                let lo = state.read(state.pc);
-                state.pc += 1;
-                Address(lo as u16)
-            },
-            ZPG_X => {
-                state.pc += 1;
-                let lo = state.read(state.pc);
-                state.pc += 1;
-                Address(lo as u16 + state.x as u16)
-            },
-            ZPG_Y => {
-                state.pc += 1;
-                let lo = state.read(state.pc);
-                state.pc += 1;
-                Address(lo as u16 + state.y as u16)
-            },
-            IND => {
-                state.pc += 1;
-                let lo = state.read(state.pc);
-                state.pc += 1;
-                let hi = state.read(state.pc);
-                state.pc += 1;
-                let pointer = (lo as u16 + (((hi as u16) << 0x10)));
-                Address(state.read(pointer) as u16 + ((state.read(pointer + 1) as u16) << 0x10))
-            },
-            X_IND => {
-                state.pc += 1;
-                let lo = state.read(state.pc);
-                state.pc += 1;
-                let pointer = (lo as u16 + state.x as u16);
-                Address(state.read(pointer) as u16 + ((state.read(pointer + 1) as u16) << 0x10))
-            },
-            IND_Y => {
-                state.pc += 1;
-                let lo = state.read(state.pc);
-                state.pc += 1;
-                let pointer = lo as u16;
-                Address(state.read(pointer) as u16 + ((state.read(pointer + 1) as u16) << 0x10) + state.y as u16)
-            },
-            J => unimplemented!(),
-        }
-    }
-}
-
-// Instructions
-#[derive(Debug, PartialEq, Eq, Clone)]
-struct Instruction {
-    opcode: Opcode,
-    addressing_mode: AddressingMode,
-    //cycles: u8,
 }
 

@@ -2,7 +2,14 @@ use crate::Opcode::*;
 use crate::Opcode;
 use crate::AddressingMode::*;
 use crate::AddressingMode;
-use crate::Instruction;
+
+// Instructions
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Instruction {
+    pub opcode: Opcode,
+    pub addressing_mode: AddressingMode,
+    //cycles: u8,
+}
 
 macro_rules! tabalize {
     ($($x:expr,$y:expr ); *;) => {
