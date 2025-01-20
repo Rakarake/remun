@@ -1,12 +1,76 @@
-macro_rules! another_nord_w {
-    () => {
-        5
-    };
-}
-
 
 fn main() {
-    println!("{:?}", instructions::INSTRUCTIONS);
+    use Opcode::*;
+    use AddressingMode::*;
+    use Operand::*;
+    let test_program: Vec<u8> = [
+        INSTR(LDA, IMM, U8(0x02))
+    ].iter().map(|i| i.get_bytes()).collect::<Vec<Vec<u8>>>().concat();
+    let mut state = State {
+        /// Program Counter
+        pc: 0,
+        /// Accumulator
+        a: 0,
+        /// X
+        x: 0,
+        /// Y
+        y: 0,
+        /// Status register: NV-BDIZC
+        /// N	Negative
+        /// V	Overflow
+        /// -	ignored
+        /// B	Break
+        /// D	Decimal (unused on the NES)
+        /// I	Interrupt (IRQ disable)
+        /// Z	Zero
+        /// C	Carry
+        sr: 0,
+        /// Stack Pointer
+        sp: 0xFF,
+        /// Number of cycles that have passed
+        cycles: 0,
+        /// Built in ram
+        ram: [0; 0x0800],
+    };
+    // Fill ram with test program
+    for (i,ele) in test_program.iter().enumerate() {
+        state.ram[i] = *ele;
+    }
+    state.run_one_instruction();
+    println!("{:?}", state.a);
+}
+
+struct INSTR(Opcode, AddressingMode, Operand);
+
+impl INSTR {
+    fn get_bytes(&self) -> Vec<u8> {
+        let INSTR(op,a,operand) = self;
+        if let Some(index) = 
+            instructions::INSTRUCTIONS.iter().position(|Instruction { opcode, addressing_mode }| {
+                op == opcode && a == addressing_mode
+            })
+        {
+            use Operand::*;
+            match operand {
+                No => vec![index as u8],
+                U8(b) => vec![index as u8, *b],
+                U16(bs) => {
+                    let mut x = vec![index as u8];
+                    x.extend_from_slice(&bs.to_be_bytes());
+                    x
+                },
+            }
+        }
+        else {
+            panic!("no such instruction")
+        }
+    }
+}
+
+enum Operand {
+    No,
+    U8(u8),
+    U16(u16),
 }
 
 /// `0`: inclusive, `1`: exclusive
@@ -31,6 +95,13 @@ struct State {
 }
 
 impl State {
+    fn run_one_instruction(&mut self) {
+        let instr = self.read(self.pc);
+        let Instruction { opcode, addressing_mode } = instructions::INSTRUCTIONS[instr as usize].clone();
+        let memory_target = addressing_mode.run(self);
+        opcode.run(self, memory_target);
+    }
+
     fn read(&mut self, address: u16) -> u8 {
         if RAM_RANGE.contains(address) {
             return self.ram[address as usize];
@@ -52,7 +123,7 @@ impl State {
 
 // Opcode
 #[allow(non_snake_case)]
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 enum Opcode {
     ADC,
     AND,
@@ -145,7 +216,9 @@ impl Opcode {
             Address(addr) => {
                 match self {
                     LDA => {
-                        state.a = state.read(addr);
+                        let val = state.read(addr);
+                        state.a = val;
+                        state.sr = (val == 0) as u8;
                     },
                     STA => {
                         state.write(addr, state.a);
@@ -154,8 +227,14 @@ impl Opcode {
                 }
             },
             Accumulator => {
+                match self {
+                    _ => unimplemented!()
+                }
             },
             Impl => {
+                match self {
+                    _ => unimplemented!()
+                }
             },
         }
     }
@@ -163,7 +242,7 @@ impl Opcode {
 
 // Addressing modes
 #[allow(non_snake_case)]
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 enum AddressingMode {
     IMPL,  // nuh uh
     A,     // accumulator
@@ -192,7 +271,7 @@ impl AddressingMode {
     // TODO implement number of cycles
     /// Increases PC, returns the memory target/adress for opcode
     /// to work on.
-    fn run(&self, state: &mut State, instruction: u8) -> MemoryTarget {
+    fn run(&self, state: &mut State) -> MemoryTarget {
         use AddressingMode::*;
         use MemoryTarget::*;
         match self {
@@ -210,7 +289,7 @@ impl AddressingMode {
                 state.pc += 1;
                 let hi = state.read(state.pc);
                 state.pc += 1;
-                Address(lo as u16 + ((hi as u16) << 0x10))
+                Address(lo as u16 + ((hi as u16) << 8))
             },
             ABS_X => {
                 state.pc += 1;
@@ -277,14 +356,12 @@ impl AddressingMode {
 }
 
 // Instructions
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 struct Instruction {
     opcode: Opcode,
     addressing_mode: AddressingMode,
     //cycles: u8,
 }
-
-const W: u8 = another_nord_w!();
 
 mod instructions {
     use crate::Opcode::*;
