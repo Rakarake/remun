@@ -14,29 +14,13 @@ fn main() {
         INSTR(LDA, IMM, U8(0x02))
     ].iter().map(|i| i.get_bytes()).collect::<Vec<Vec<u8>>>().concat();
     let mut state = State {
-        /// Program Counter
         pc: 0,
-        /// Accumulator
         a: 0,
-        /// X
         x: 0,
-        /// Y
         y: 0,
-        /// Status register: NV-BDIZC
-        /// N	Negative
-        /// V	Overflow
-        /// -	ignored
-        /// B	Break
-        /// D	Decimal (unused on the NES)
-        /// I	Interrupt (IRQ disable)
-        /// Z	Zero
-        /// C	Carry
         sr: 0,
-        /// Stack Pointer
         sp: 0xFF,
-        /// Number of cycles that have passed
         cycles: 0,
-        /// Built in ram
         ram: [0; 0x0800],
     };
     // Fill ram with test program
@@ -47,6 +31,7 @@ fn main() {
     println!("{:?}", state.a);
 }
 
+/// Struct for easy NES program debugging.
 struct INSTR(Opcode, AddressingMode, Operand);
 
 impl INSTR {
@@ -91,14 +76,30 @@ impl Range {
 const RAM_RANGE: Range = Range(0x0000, 0x0100);
 
 struct State {
-    pc: u16,            // Program counter
-    a: u8,              // Accumulator register
-    x: u8,              // X register
-    y: u8,              // Y register
-    sr: u8,             // Status register
-    sp: u8,             // Stack pointer
-    cycles: u64,        // Number of cycles that have passed
-    ram: [u8; 0x0800],  // System RAM: $0000-$07FF, 2KiB
+    /// Program counter
+    pc: u16,            
+    /// Accumulator register
+    a: u8,              
+    /// X register
+    x: u8,              
+    /// Y register
+    y: u8,              
+    /// Status register: NV-BDIZC
+    /// N  Negative
+    /// V  Overflow
+    /// -  ignored
+    /// B  Break
+    /// D  Decimal (unused on the NES)
+    /// I  Interrupt (IRQ disable)
+    /// Z  Zero
+    /// C  Carry
+    sr: u8,             
+    /// Stack pointer
+    sp: u8,             
+    /// Number of cycles that have passed
+    cycles: u64,        
+    /// System RAM: $0000-$07FF, 2KiB
+    ram: [u8; 0x0800],  
 }
 
 impl State {
@@ -115,7 +116,6 @@ impl State {
         } else {
             unimplemented!()
         }
-        0
     }
     fn write(&mut self, address: u16, value: u8) {
         if address < 0x0800 {
