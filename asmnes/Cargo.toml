@@ -7,6 +7,9 @@ edition = "2021"
 name = "asmnes"
 path = "bin.rs"
 
+[lib]
+path = "lib.rs"
+
 [dependencies]
 shared = { workspace = true }
 
