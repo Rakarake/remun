@@ -7,7 +7,7 @@ use crate::State;
 pub enum AddressingMode {
     IMPL,  // nuh uh
     A,     // accumulator
-    IMM,   // #FF
+    IMM,   // #$FF
     REL,   // $FF
     ABS,   // $LOHI
     ABS_X, // $LOHI,X
