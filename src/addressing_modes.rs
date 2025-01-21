@@ -5,8 +5,8 @@ use crate::State;
 #[allow(non_snake_case)]
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum AddressingMode {
-    IMPL,  // nuh uh
-    A,     // accumulator
+    IMPL,  // 
+    A,     // A
     IMM,   // #$FF
     REL,   // $FF
     ABS,   // $LOHI
