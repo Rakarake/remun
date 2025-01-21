@@ -6,40 +6,6 @@ use shared::AddressingMode;
 use shared::Instruction;
 use shared::INSTRUCTIONS;
 
-pub enum Operand {
-    No,
-    U8(u8),
-    U16(u16),
-}
-
-/// Struct for easy NES program debugging.
-pub struct INSTR(pub Opcode, pub AddressingMode, pub Operand);
-
-impl INSTR {
-    pub fn get_bytes(&self) -> Vec<u8> {
-        let INSTR(op,a,operand) = self;
-        if let Some(index) = 
-            INSTRUCTIONS.iter().position(|Instruction { opcode, addressing_mode }| {
-                op == opcode && a == addressing_mode
-            })
-        {
-            use Operand::*;
-            match operand {
-                No => vec![index as u8],
-                U8(b) => vec![index as u8, *b],
-                U16(bs) => {
-                    let mut x = vec![index as u8];
-                    x.extend_from_slice(&bs.to_be_bytes());
-                    x
-                },
-            }
-        }
-        else {
-            panic!("no such instruction")
-        }
-    }
-}
-
 /// `0`: inclusive, `1`: exclusive
 struct Range(u16, u16);
 impl Range {

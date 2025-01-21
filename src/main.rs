@@ -1,13 +1,13 @@
 use shared::Opcode::*;
 use shared::AddressingMode::*;
-use remun::Operand::*;
-use remun::INSTR;
+use asmnes::Operand::*;
+use asmnes::INSTR;
 use remun::State;
 
 fn main() {
-    let test_program: Vec<u8> = [
+    let test_program: Vec<u8> = asmnes::logical_assemble(&[
         INSTR(LDA, IMM, U8(0x02))
-    ].iter().map(|i| i.get_bytes()).collect::<Vec<Vec<u8>>>().concat();
+    ]);
     let mut state = State {
         pc: 0,
         a: 0,
