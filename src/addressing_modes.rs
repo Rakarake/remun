@@ -29,8 +29,14 @@ impl AddressingMode {
         use AddressingMode::*;
         use MemoryTarget::*;
         match self {
-            IMPL => Impl,
-            A => Accumulator,
+            IMPL => {
+                state.pc += 1;
+                Impl
+            },
+            A => {
+                state.pc += 1;
+                Accumulator
+            },
             IMM => {
                 state.pc += 1;
                 let a = Address(state.pc);
