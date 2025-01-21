@@ -2,5 +2,18 @@
 name = "remun"
 version = "0.1.0"
 edition = "2021"
+default-run = "remun"
 
 [dependencies]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "remun"
+path = "src/main.rs"
+
+[[bin]]
+name = "asmnes"
+path = "src/bin/asmnes.rs"
+
