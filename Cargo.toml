@@ -2,18 +2,15 @@
 name = "remun"
 version = "0.1.0"
 edition = "2021"
-default-run = "remun"
 
 [dependencies]
+asmnes = { workspace = true }
+shared = { workspace = true }
 
-[lib]
-path = "src/lib.rs"
+[workspace]
+members = [ "asmnes", "shared" ]
 
-[[bin]]
-name = "remun"
-path = "src/main.rs"
-
-[[bin]]
-name = "asmnes"
-path = "src/bin/asmnes.rs"
+[workspace.dependencies]
+shared = { path = "shared" }
+asmnes = { path = "asmnes" }
 

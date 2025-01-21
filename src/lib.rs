@@ -1,10 +1,16 @@
 pub mod opcodes;
 pub mod addressing_modes;
-pub mod instructions;
 
-use opcodes::Opcode;
-use addressing_modes::AddressingMode;
-use instructions::Instruction;
+use shared::Opcode;
+use shared::AddressingMode;
+use shared::Instruction;
+use shared::INSTRUCTIONS;
+
+pub enum Operand {
+    No,
+    U8(u8),
+    U16(u16),
+}
 
 /// Struct for easy NES program debugging.
 pub struct INSTR(pub Opcode, pub AddressingMode, pub Operand);
@@ -13,7 +19,7 @@ impl INSTR {
     pub fn get_bytes(&self) -> Vec<u8> {
         let INSTR(op,a,operand) = self;
         if let Some(index) = 
-            instructions::INSTRUCTIONS.iter().position(|Instruction { opcode, addressing_mode }| {
+            INSTRUCTIONS.iter().position(|Instruction { opcode, addressing_mode }| {
                 op == opcode && a == addressing_mode
             })
         {
@@ -32,12 +38,6 @@ impl INSTR {
             panic!("no such instruction")
         }
     }
-}
-
-pub enum Operand {
-    No,
-    U8(u8),
-    U16(u16),
 }
 
 /// `0`: inclusive, `1`: exclusive
@@ -80,9 +80,9 @@ pub struct State {
 impl State {
     pub fn run_one_instruction(&mut self) {
         let instr = self.read(self.pc);
-        let Instruction { opcode, addressing_mode } = instructions::INSTRUCTIONS[instr as usize].clone();
-        let memory_target = addressing_mode.run(self);
-        opcode.run(self, memory_target);
+        let Instruction { opcode, addressing_mode } = INSTRUCTIONS[instr as usize].clone();
+        let memory_target = addressing_modes::run(addressing_mode, self);
+        opcodes::run(opcode, self, memory_target);
     }
 
     pub fn read(&mut self, address: u16) -> u8 {

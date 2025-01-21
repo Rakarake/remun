@@ -1,14 +1,10 @@
-use remun::opcodes::Opcode;
-use remun::addressing_modes::AddressingMode;
-use remun::instructions::Instruction;
-use remun::Operand;
+use shared::Opcode::*;
+use shared::AddressingMode::*;
+use remun::Operand::*;
 use remun::INSTR;
 use remun::State;
 
 fn main() {
-    use Opcode::*;
-    use AddressingMode::*;
-    use Operand::*;
     let test_program: Vec<u8> = [
         INSTR(LDA, IMM, U8(0x02))
     ].iter().map(|i| i.get_bytes()).collect::<Vec<Vec<u8>>>().concat();

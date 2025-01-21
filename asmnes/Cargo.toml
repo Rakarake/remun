@@ -1,0 +1,12 @@
+[package]
+name = "asmnes"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "asmnes"
+path = "bin.rs"
+
+[dependencies]
+shared = { workspace = true }
+

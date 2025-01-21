@@ -3,5 +3,20 @@
 version = 4
 
 [[package]]
+name = "asmnes"
+version = "0.1.0"
+dependencies = [
+ "shared",
+]
+
+[[package]]
 name = "remun"
+version = "0.1.0"
+dependencies = [
+ "asmnes",
+ "shared",
+]
+
+[[package]]
+name = "shared"
 version = "0.1.0"

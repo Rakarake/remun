@@ -1,7 +1,107 @@
-use crate::Opcode::*;
-use crate::Opcode;
-use crate::AddressingMode::*;
-use crate::AddressingMode;
+// Addressing modes
+#[allow(non_snake_case)]
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum AddressingMode {
+    IMPL,  // 
+    A,     // A
+    IMM,   // #$FF
+    REL,   // $FF
+    ABS,   // $LOHI
+    ABS_X, // $LOHI,X
+    ABS_Y, // $LOHI,Y
+    IND,   // ($LOHI)
+    X_IND, // ($LO,X)
+    IND_Y, // ($LO),Y
+    ZPG,   // $LO
+    ZPG_X, // $LO,X
+    ZPG_Y, // $LO,Y
+    J,     // jam :(
+}
+
+// Opcode
+#[allow(non_snake_case)]
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Opcode {
+    ADC,
+    AND,
+    ASL,
+    BCC,
+    BCS,
+    BEQ,
+    BIT,
+    BMI,
+    BNE,
+    BPL,
+    BRK,
+    BVC,
+    BVS,
+    CLC,
+    CLD,
+    CLI,
+    CLV,
+    CMP,
+    CPX,
+    CPY,
+    DEC,
+    DEX,
+    DEY,
+    EOR,
+    INC,
+    INX,
+    INY,
+    JMP,
+    JSR,
+    LDA,
+    LDX,
+    LDY,
+    LSR,
+    NOP,
+    ORA,
+    PHA,
+    PHP,
+    PLA,
+    PLP,
+    ROL,
+    ROR,
+    RTI,
+    RTS,
+    SBC,
+    SEC,
+    SED,
+    SEI,
+    STA,
+    STX,
+    STY,
+    TAX,
+    TAY,
+    TSX,
+    TXA,
+    TXS,
+    TYA,
+
+    // Illegal opcodes
+    ALR,
+    ANC,
+    ANE,
+    ARR,
+    DCP,
+    ISC,
+    LAS,
+    LAX,
+    LXA,
+    RLA,
+    RRA,
+    SAX,
+    SBX,
+    SHA,
+    SHX,
+    SHY,
+    SLO,
+    SRE,
+    TAS,
+    USB,
+    JAM,
+}
 
 // Instructions
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -16,6 +116,9 @@ macro_rules! tabalize {
         [ $(Instruction { opcode: $x, addressing_mode: $y },)* ]
     };
 }
+
+use Opcode::*;
+use AddressingMode::*;
 
 // Zoom out to see properly :)
 pub const INSTRUCTIONS: [Instruction; 256] = tabalize! [
@@ -36,3 +139,4 @@ pub const INSTRUCTIONS: [Instruction; 256] = tabalize! [
     CPX,IMM  ; SBC,X_IND ; NOP,IMM ; ISC,X_IND ; CPX,ZPG   ; SBC,ZPG   ; INC,ZPG   ; ISC,ZPG   ; INX,IMPL ; SBC,IMM   ; NOP,IMPL ; USB, IMM  ; CPX,ABS   ; SBC,ABS   ; INC,ABS   ; ISC,ABS   ;
     BEQ,REL  ; SBC,IND_Y ; JAM,J   ; ISC,IND_Y ; NOP,ZPG_X ; SBC,ZPG_X ; INC,ZPG_X ; ISC,ZPG_X ; SED,IMPL ; SBC,ABS_Y ; NOP,IMPL ; ISC,ABS_Y ; NOP,ABS_X ; SBC,ABS_X ; INC,ABS_X ; ISC,ABS_X ;
 ];
+
