@@ -4,6 +4,7 @@ use shared::Instruction;
 use shared::opcode_iter;
 use shared::INSTRUCTIONS;
 use std::fmt;
+use std::collections::HashMap;
 
 pub const MORG: u32 = 3;
 
@@ -19,15 +20,21 @@ impl fmt::Display for AsmnesError {
     }
 }
 
+// lables: 16bit, variables: 8bit
+// First pass: lex everything, get a map of labels->address and variables->values
+// Second pass: codegen over lexed input resolving using map of labels/variables 
+
 /// Does not produce the finalized binary, only a local byte array
-pub fn simple_assemble(input: &str) -> Vec<u8> {
-    logical_assemble(&second_pass(&first_pass(input)))
+pub fn simple_assemble(input: &str) -> Result<Vec<u8>, AsmnesError> {
+    logical_assemble(&second_pass(&first_pass(input)?)?)
 }
 
 /// Lexing
-fn first_pass(input: &str) -> Vec<INSTR> {
+fn first_pass(input: &str) -> Result<Vec<INSTR>, AsmnesError> {
     let mut output: Vec<INSTR> = Vec::new();
     let mut reader: Vec<char> = Vec::new();
+    let mut labels: HashMap<String, u16> = HashMap::new();
+    let mut variables: HashMap<String, u8> = HashMap::new();
     input.lines().for_each(|l| {
         // TODO do sanity checks about indentation and comments
         let mut words = l.split_whitespace();
@@ -40,30 +47,32 @@ fn first_pass(input: &str) -> Vec<INSTR> {
             if word.starts_with(';') {
             }
             // Is a label
-            
+            if word.ends_with(':') {
+            }
         }
     });
-    return vec![];
+    return Ok(vec![]);
 }
 
-fn second_pass(input: &[INSTR]) -> Vec<INSTR> {
-    return vec![];
+fn second_pass(input: &[INSTR]) -> Result<Vec<INSTR>, AsmnesError> {
+    return Ok(vec![]);
 }
 
 /// Assembles from INSTR
-pub fn logical_assemble(instructions: &[INSTR]) -> Vec<u8> {
-    instructions.iter().map(|i| i.get_bytes()).collect::<Vec<Vec<u8>>>().concat()
+pub fn logical_assemble(instructions: &[INSTR]) -> Result<Vec<u8>, AsmnesError> {
+    Ok(instructions.iter().map(|i| i.get_bytes()).collect::<Vec<Vec<u8>>>().concat())
 }
+
+/// Struct for simple NES program debugging.
+pub struct INSTR(pub Opcode, pub AddressingMode, pub Operand);
 
 pub enum Operand {
     No,
     U8(u8),
     U16(u16),
     Label(String),
+    Variable(String),
 }
-
-/// Struct for simple NES program debugging.
-pub struct INSTR(pub Opcode, pub AddressingMode, pub Operand);
 
 impl INSTR {
     pub fn get_bytes(&self) -> Vec<u8> {
@@ -84,6 +93,9 @@ impl INSTR {
                 },
                 Label(_) => {
                     panic!("labels have to be resolved");
+                },
+                Variable(_) => {
+                    panic!("variables have to be resolved");
                 },
             }
         }
