@@ -1,4 +1,4 @@
-// Addressing modes
+/// Addressing modes
 #[allow(non_snake_case)]
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum AddressingMode {
@@ -18,9 +18,9 @@ pub enum AddressingMode {
     J,     // jam :(
 }
 
-// Opcode
+/// All opcodes, implements Display
 #[allow(non_snake_case)]
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, strum_macros::Display, strum_macros::EnumIter)]
 pub enum Opcode {
     ADC,
     AND,
@@ -103,6 +103,10 @@ pub enum Opcode {
     JAM,
 }
 
+pub fn opcode_iter() -> OpcodeIter {
+    Opcode::iter()
+}
+
 // Instructions
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Instruction {
@@ -117,6 +121,7 @@ macro_rules! tabalize {
     };
 }
 
+use strum::IntoEnumIterator;
 use Opcode::*;
 use AddressingMode::*;
 

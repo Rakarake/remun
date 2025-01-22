@@ -11,6 +11,9 @@ shared = { workspace = true }
 members = [ "asmnes", "shared" ]
 
 [workspace.dependencies]
+strum = "0.26"
+strum_macros = "0.26"
+
 shared = { path = "shared" }
 asmnes = { path = "asmnes" }
 
