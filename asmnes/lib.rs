@@ -3,14 +3,15 @@ use shared::AddressingMode;
 use shared::Instruction;
 use shared::opcode_iter;
 use shared::INSTRUCTIONS;
+use std::char;
 use std::fmt;
 use std::collections::HashMap;
 
 pub const MORG: u32 = 3;
 
 #[derive(Debug)]
-struct AsmnesError {
-    line: String,
+pub struct AsmnesError {
+    line: usize,
     cause: String,
 }
 
@@ -24,33 +25,70 @@ impl fmt::Display for AsmnesError {
 // First pass: lex everything, get a map of labels->address and variables->values
 // Second pass: codegen over lexed input resolving using map of labels/variables 
 
+// Lexing: we should use &str!
+
 /// Does not produce the finalized binary, only a local byte array
 pub fn simple_assemble(input: &str) -> Result<Vec<u8>, AsmnesError> {
     logical_assemble(&second_pass(&first_pass(input)?)?)
 }
 
+/// Parsing state
+struct State {
+    line: usize,
+}
+
+fn p_opcode<'a>(i: &'a str, s: &State) -> Result<(Opcode, &'a str), AsmnesError> {
+    if i.len() >= 3 {
+        let word = &i[..3];
+        if let Some(o) = opcode_iter().find_map(|o| if o.to_string() == word { Some(o) } else { None }) {
+            Ok((o, &i[3..]))
+        } else {
+            Err(AsmnesError { line: s.line, cause: "not an opcode".to_string() })
+        }
+    } else {
+        Err(AsmnesError { line: s.line, cause: "end of file".to_string() })
+    }
+}
+
+fn p_optional_spacing(i: &str) -> &str {
+    let mut i = i;
+    while i.starts_with(' ') || i.starts_with('\t') {
+        i = &i[1..];
+    }
+    i
+}
+
+fn p_spacing<'a>(i: &'a str, s: &State) -> Result<((), &'a str), AsmnesError> {
+    if i.starts_with(' ') || i.starts_with('\t') {
+        Ok(((), p_optional_spacing(i)))
+    } else {
+        Err(AsmnesError { line: s.line, cause: "expected spacing".to_string() })
+    }
+}
+
+fn p_label<'a>(i: &'a str, s: &State) -> Result<(String, &'a str), AsmnesError> {
+    
+}
+
+fn p_line<'a>(i: &'a str, s: &State) -> Result<Option<(&'a str, INSTR)>, AsmnesError> {
+    // label or indented ISNTR
+    match p_spacing(i, s) {
+        Ok(((), i)) => {
+        },
+        Err(_) => {
+            // label
+        },
+    } p_spacing(i, s);
+    Err(AsmnesError { line: s.line, cause: "end of file".to_string() })
+}
+
 /// Lexing
 fn first_pass(input: &str) -> Result<Vec<INSTR>, AsmnesError> {
-    let mut output: Vec<INSTR> = Vec::new();
-    let mut reader: Vec<char> = Vec::new();
-    let mut labels: HashMap<String, u16> = HashMap::new();
-    let mut variables: HashMap<String, u8> = HashMap::new();
-    input.lines().for_each(|l| {
-        // TODO do sanity checks about indentation and comments
-        let mut words = l.split_whitespace();
-        if let Some(word) = words.next() {
-            // Is an opcode
-            if let Some(o) = opcode_iter().find_map(|o| if o.to_string() == word { Some(o) } else { None }) {
-                // Expecting addressing mode
-            }
-            // Is a comment
-            if word.starts_with(';') {
-            }
-            // Is a label
-            if word.ends_with(':') {
-            }
-        }
-    });
+    // try parse an opcode
+    if input.len() >= 3 {
+        let glob = &input[..2];
+
+    }
     return Ok(vec![]);
 }
 
