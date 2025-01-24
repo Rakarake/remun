@@ -6,6 +6,7 @@ use shared::INSTRUCTIONS;
 use std::char;
 use std::fmt;
 use std::collections::HashMap;
+use std::ops::Index;
 
 pub const MORG: u32 = 3;
 
@@ -67,7 +68,18 @@ fn p_spacing<'a>(i: &'a str, s: &State) -> Result<((), &'a str), AsmnesError> {
 }
 
 fn p_label<'a>(i: &'a str, s: &State) -> Result<(String, &'a str), AsmnesError> {
-    
+    let label: String = i.chars().take_while(|c| *c != ':').collect::<String>();
+    let i = &i[label.len()..];
+    Ok((label, i))
+}
+
+fn p_end_of_line<'a>(i: &'a str, s: &State) -> Result<((), &'a str), AsmnesError> {
+    let i = p_optional_spacing(i);
+    if i.starts_with('\n') {
+        Ok(((), i))
+    } else {
+        Err(AsmnesError { line: s.line, cause: "expecting end of line".to_string() })
+    }
 }
 
 fn p_line<'a>(i: &'a str, s: &State) -> Result<Option<(&'a str, INSTR)>, AsmnesError> {
