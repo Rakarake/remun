@@ -4,6 +4,7 @@ use shared::Instruction;
 use shared::opcode_iter;
 use shared::INSTRUCTIONS;
 use std::char;
+use std::error::Error;
 use std::fmt;
 use std::collections::HashMap;
 use std::ops::Index;
@@ -23,7 +24,8 @@ impl fmt::Display for AsmnesError {
 }
 
 // lables: 16bit, variables: 8bit
-// First pass: lex everything, get a map of labels->address and variables->values
+// Lex: lex
+// First pass: parse, get byte layout, get a map of labels->address and variables->values
 // Second pass: codegen over lexed input resolving using map of labels/variables 
 
 // Lexing: we should use &str!
@@ -36,6 +38,70 @@ pub fn simple_assemble(input: &str) -> Result<Vec<u8>, AsmnesError> {
 /// Parsing state
 struct State {
     line: usize,
+}
+
+enum Token {
+    Ident(String),
+    Opcode(Opcode),
+    Colon,
+    Comma,
+    Hash,
+    BeginPar,
+    EndPar,
+    Percent,
+}
+
+struct DecoratedToken {
+    token: Token,
+    line: usize,
+    col: usize,
+}
+
+// 3 cases: opeartion, label, variable+directive, directive.
+
+fn lex(i: &str) -> Result<Vec<DecoratedToken>, AsmnesError> {
+    let mut chars = i.chars().peekable();
+    let mut tokens: Vec<DecoratedToken> = Vec::new();
+    let mut curr_ident = String::new();
+    let mut line = 1;
+    let mut col = 1;
+    let mut in_comment = false;
+    while let Some(c) = chars.next() {
+        if !in_comment {
+            match c {
+                ';' => {
+                    in_comment = true;
+                },
+                '\n' => {
+                    line += 1;
+                    // One below, it is incremented later
+                    col = 0;
+                    in_comment = false;
+                },
+                ' ' => {
+                    if !curr_ident.is_empty() {
+                        tokens.push(DecoratedToken { token: Token::Ident(curr_ident.clone()), line, col });
+                    }
+                },
+                ':' => {
+                    tokens.push(DecoratedToken { token: Token::Colon, line, col });
+                },
+                _ => {
+                    // An opcode
+                    // NEED LET CHAINS!!!
+                    if let Some(word) = i.get(..3) {
+                        if let Some(o) = opcode_iter().find_map(|o| if o.to_string() == word { Some(o) } else { None }) {
+                            tokens.push(DecoratedToken { token: Token::Opcode(o), line, col });
+                        }
+                    }
+
+                    curr_ident.push(c);
+                }
+            }
+        }
+        col += 1;
+    }
+    Err(AsmnesError { line: 0, cause: "end of file".to_string() })
 }
 
 fn p_opcode<'a>(i: &'a str, s: &State) -> Result<(Opcode, &'a str), AsmnesError> {
@@ -82,15 +148,22 @@ fn p_end_of_line<'a>(i: &'a str, s: &State) -> Result<((), &'a str), AsmnesError
     }
 }
 
+fn p_comment<'a>(i: &'a str, s: &State) -> Result<((), &'a str), AsmnesError> {
+    if i.starts_with(';') {
+        if let Some((idx, _)) = i.match_indices('\n').next() {
+            let i = &i[idx+1..];
+            Ok(((), i))
+        } else {
+            Ok(((), ""))
+        }
+    } else {
+        Err(AsmnesError { line: s.line, cause: "expecting comment".to_string() })
+    }
+}
+
 fn p_line<'a>(i: &'a str, s: &State) -> Result<Option<(&'a str, INSTR)>, AsmnesError> {
     // label or indented ISNTR
-    match p_spacing(i, s) {
-        Ok(((), i)) => {
-        },
-        Err(_) => {
-            // label
-        },
-    } p_spacing(i, s);
+
     Err(AsmnesError { line: s.line, cause: "end of file".to_string() })
 }
 
