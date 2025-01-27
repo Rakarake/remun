@@ -1,3 +1,5 @@
+#![feature(let_chains)]
+
 use shared::Opcode;
 use shared::AddressingMode;
 use shared::Instruction;
@@ -88,11 +90,10 @@ fn lex(i: &str) -> Result<Vec<DecoratedToken>, AsmnesError> {
                 },
                 _ => {
                     // An opcode
-                    // NEED LET CHAINS!!!
-                    if let Some(word) = i.get(..3) {
-                        if let Some(o) = opcode_iter().find_map(|o| if o.to_string() == word { Some(o) } else { None }) {
-                            tokens.push(DecoratedToken { token: Token::Opcode(o), line, col });
-                        }
+                    if let Some(word) = i.get(..3)
+                        && let Some(o) = opcode_iter().find_map(|o| if o.to_string() == word { Some(o) } else { None })
+                    {
+                        tokens.push(DecoratedToken { token: Token::Opcode(o), line, col });
                     }
 
                     curr_ident.push(c);
@@ -102,6 +103,12 @@ fn lex(i: &str) -> Result<Vec<DecoratedToken>, AsmnesError> {
         col += 1;
     }
     Err(AsmnesError { line: 0, cause: "end of file".to_string() })
+}
+
+fn lex_try_add_ident(ident: String, tokens: &mut Vec<DecoratedToken>) {
+    if !curr_ident.is_empty() {
+        tokens.push(DecoratedToken { token: Token::Ident(curr_ident.clone()), line, col });
+    }
 }
 
 fn p_opcode<'a>(i: &'a str, s: &State) -> Result<(Opcode, &'a str), AsmnesError> {
