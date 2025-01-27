@@ -64,7 +64,7 @@ struct DecoratedToken {
 fn lex(i: &str) -> Result<Vec<DecoratedToken>, AsmnesError> {
     let mut chars = i.chars().peekable();
     let mut tokens: Vec<DecoratedToken> = Vec::new();
-    let mut curr_ident = String::new();
+    let mut ident = String::new();
     let mut line = 1;
     let mut col = 1;
     let mut in_comment = false;
@@ -72,31 +72,32 @@ fn lex(i: &str) -> Result<Vec<DecoratedToken>, AsmnesError> {
         if !in_comment {
             match c {
                 ';' => {
+                    lex_try_add_ident(&ident, &mut tokens, line, col);
                     in_comment = true;
                 },
                 '\n' => {
+                    lex_try_add_ident(&ident, &mut tokens, line, col);
                     line += 1;
                     // One below, it is incremented later
                     col = 0;
                     in_comment = false;
                 },
                 ' ' => {
-                    if !curr_ident.is_empty() {
-                        tokens.push(DecoratedToken { token: Token::Ident(curr_ident.clone()), line, col });
-                    }
+                    lex_try_add_ident(&ident, &mut tokens, line, col);
                 },
                 ':' => {
+                    lex_try_add_ident(&ident, &mut tokens, line, col);
                     tokens.push(DecoratedToken { token: Token::Colon, line, col });
                 },
+                '#' => {
+                    lex_try_add_ident(&ident, &mut tokens, line, col);
+                    tokens.push(DecoratedToken { token: Token::Hash, line, col });
+                },
+                '$' => {
+                },
                 _ => {
-                    // An opcode
-                    if let Some(word) = i.get(..3)
-                        && let Some(o) = opcode_iter().find_map(|o| if o.to_string() == word { Some(o) } else { None })
-                    {
-                        tokens.push(DecoratedToken { token: Token::Opcode(o), line, col });
-                    }
 
-                    curr_ident.push(c);
+                    ident.push(c);
                 }
             }
         }
@@ -105,9 +106,16 @@ fn lex(i: &str) -> Result<Vec<DecoratedToken>, AsmnesError> {
     Err(AsmnesError { line: 0, cause: "end of file".to_string() })
 }
 
-fn lex_try_add_ident(ident: String, tokens: &mut Vec<DecoratedToken>) {
-    if !curr_ident.is_empty() {
-        tokens.push(DecoratedToken { token: Token::Ident(curr_ident.clone()), line, col });
+// After a word, or something
+fn lex_try_add_ident(ident: &String, tokens: &mut Vec<DecoratedToken>, line: usize, col: usize) {
+    // An opcode
+    if ident.len() == 3
+        && let Some(o) = opcode_iter().find_map(|o| if o.to_string() == *ident { Some(o) } else { None })
+    {
+        tokens.push(DecoratedToken { token: Token::Opcode(o), line, col });
+    }
+    if !ident.is_empty() {
+        tokens.push(DecoratedToken { token: Token::Ident(ident.clone()), line, col });
     }
 }
 
