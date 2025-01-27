@@ -1,13 +1,18 @@
+use asmnes::AsmnesError;
 use shared::Opcode::*;
 use shared::AddressingMode::*;
 use asmnes::Operand::*;
 use asmnes::INSTR;
+use asmnes::INSTRL;
 use remun::State;
 
-fn main() {
-    let test_program: Vec<u8> = asmnes::logical_assemble(&[
-        INSTR(LDA, IMM, U8(0x02))
-    ]);
+fn main() -> Result<(), AsmnesError> {
+    let test_program: Vec<u8> = asmnes::logical_assemble_plus(&[
+        INSTRL::INSTR(INSTR(LDA, IMM, U8(0x02))),
+        INSTRL::INSTR(INSTR(LDA, IMM, U8(0x02))),
+        INSTRL::LABEL("HELLO_WORLD".to_string()),
+        INSTRL::INSTR(INSTR(LDA, IMM, U8(0x02))),
+    ])?;
     let mut state = State {
         pc: 0,
         a: 0,
@@ -24,5 +29,6 @@ fn main() {
     }
     state.run_one_instruction();
     println!("{:?}", state.a);
+    Ok(())
 }
 

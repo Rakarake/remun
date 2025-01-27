@@ -201,9 +201,48 @@ pub fn logical_assemble(instructions: &[INSTR]) -> Result<Vec<u8>, AsmnesError> 
     Ok(instructions.iter().map(|i| i.get_bytes()).collect::<Vec<Vec<u8>>>().concat())
 }
 
+/// Accepts labels and instructions that can use labels
+pub fn logical_assemble_plus(program: &[INSTRL]) -> Result<Vec<u8>, AsmnesError> {
+    // Does not have labels filled out after this step
+    let mut labels: HashMap<String, u16> = HashMap::new();
+    let mut instrs: Vec<INSTR> = Vec::new();
+    let mut address: u16 = 0;
+    for instrl in program {
+        match instrl {
+            INSTRL::INSTR(i) => {
+                instrs.push(i.clone());
+                address += i.1.get_len() as u16;
+            },
+            INSTRL::LABEL(l) => {
+                labels.insert(l.clone(), address);
+            },
+        }
+    }
+    for i in &mut instrs {
+        if let Operand::Label(l) = i.2.clone() {
+            if let Some(address) = labels.get(&l) {
+                i.2 = Operand::U16(*address);
+            } else {
+                return Err(AsmnesError { line: 0, cause: "label does not exist".to_string() });
+            }
+        }
+    }
+    
+    logical_assemble(&instrs)
+}
+
 /// Struct for simple NES program debugging.
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct INSTR(pub Opcode, pub AddressingMode, pub Operand);
 
+/// INSTR or labels
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum INSTRL {
+    INSTR(INSTR),
+    LABEL(String),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Operand {
     No,
     U8(u8),

@@ -18,6 +18,28 @@ pub enum AddressingMode {
     J,     // jam :(
 }
 
+impl AddressingMode {
+    /// Get the length of an instruction using this addressing mode
+    pub fn get_len(&self) -> usize {
+        match self {
+            AddressingMode::IMPL => 1,
+            AddressingMode::A => 1,
+            AddressingMode::IMM => 2,
+            AddressingMode::REL => 2,
+            AddressingMode::ZPG => 2,
+            AddressingMode::ZPG_X => 2,
+            AddressingMode::ZPG_Y => 2,
+            AddressingMode::ABS => 3,
+            AddressingMode::ABS_X => 3,
+            AddressingMode::ABS_Y => 3,
+            AddressingMode::IND => 3,
+            AddressingMode::X_IND => 2,
+            AddressingMode::IND_Y => 2,
+            AddressingMode::J => unimplemented!("illegal instruction!"),
+        }
+    }
+}
+
 /// All opcodes, implements Display
 #[allow(non_snake_case)]
 #[derive(Debug, PartialEq, Eq, Clone, strum_macros::Display, strum_macros::EnumIter)]
