@@ -252,7 +252,7 @@ pub enum Operand {
 }
 
 impl INSTR {
-    pub fn get_bytes(&self) -> Vec<u8> {
+    pub fn get_bytes(&self) -> Option<Vec<u8>> {
         let INSTR(op,a,operand) = self;
         if let Some(index) = 
             INSTRUCTIONS.iter().position(|Instruction { opcode, addressing_mode }| {
@@ -261,12 +261,12 @@ impl INSTR {
         {
             use Operand::*;
             match operand {
-                No => vec![index as u8],
-                U8(b) => vec![index as u8, *b],
+                No => Some(vec![index as u8]),
+                U8(b) => Some(vec![index as u8, *b]),
                 U16(bs) => {
                     let mut x = vec![index as u8];
                     x.extend_from_slice(&bs.to_be_bytes());
-                    x
+                    Some(x)
                 },
                 Label(_) => {
                     panic!("labels have to be resolved");
@@ -277,7 +277,7 @@ impl INSTR {
             }
         }
         else {
-            panic!("no such instruction")
+            None
         }
     }
 }

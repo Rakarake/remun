@@ -2,20 +2,33 @@
 #[allow(non_snake_case)]
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum AddressingMode {
-    IMPL,  // 
-    A,     // A
-    IMM,   // #$FF
-    REL,   // $FF
-    ABS,   // $LOHI
-    ABS_X, // $LOHI,X
-    ABS_Y, // $LOHI,Y
-    IND,   // ($LOHI)
-    X_IND, // ($LO,X)
-    IND_Y, // ($LO),Y
-    ZPG,   // $LO
-    ZPG_X, // $LO,X
-    ZPG_Y, // $LO,Y
-    J,     // jam :(
+    IMPL,
+    /// A
+    A,
+    /// #$FF
+    IMM,
+    /// $FF
+    REL,
+    /// $LOHI
+    ABS,
+    /// $LOHI,X
+    ABS_X,
+    /// $LOHI,Y
+    ABS_Y, 
+    /// ($LOHI)
+    IND,   
+    /// ($LO,X)
+    X_IND,
+    /// ($LO),Y
+    IND_Y,
+    /// $LO
+    ZPG,
+    /// $LO,X
+    ZPG_X,
+    /// $LO,Y
+    ZPG_Y,
+    /// jam :(
+    J,
 }
 
 impl AddressingMode {
