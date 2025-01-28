@@ -198,7 +198,18 @@ fn second_pass(input: &[INSTR]) -> Result<Vec<INSTR>, AsmnesError> {
 
 /// Assembles from INSTR
 pub fn logical_assemble(instructions: &[INSTR]) -> Result<Vec<u8>, AsmnesError> {
-    Ok(instructions.iter().map(|i| i.get_bytes()).collect::<Vec<Vec<u8>>>().concat())
+    let mut bytes: Vec<u8> = Vec::new();
+    for i in instructions {
+        match i.get_bytes() {
+            Some(mut bs) => {
+                bytes.append(&mut bs);
+            },
+            None => {
+                return Err(AsmnesError { line: 0, cause: "no such instruction".to_string() });
+            },
+        }
+    }
+    Ok(bytes)
 }
 
 /// Accepts labels and instructions that can use labels
@@ -219,8 +230,8 @@ pub fn logical_assemble_plus(program: &[INSTRL]) -> Result<Vec<u8>, AsmnesError>
         }
     }
     for i in &mut instrs {
-        if let Operand::Label(l) = i.2.clone() {
-            if let Some(address) = labels.get(&l) {
+        if let Operand::Label(l) = &mut i.2 {
+            if let Some(address) = labels.get(&*l) {
                 i.2 = Operand::U16(*address);
             } else {
                 return Err(AsmnesError { line: 0, cause: "label does not exist".to_string() });
@@ -249,6 +260,13 @@ pub enum Operand {
     U16(u16),
     Label(String),
     Variable(String),
+}
+
+/// INSTR, decorated
+struct INSTRD {
+    instr: INSTR,
+    line: usize,
+    address: u16,
 }
 
 impl INSTR {
