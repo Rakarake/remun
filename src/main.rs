@@ -1,4 +1,5 @@
 use asmnes::AsmnesError;
+use asmnes::AsmnesOutput;
 use shared::Opcode::*;
 use shared::AddressingMode::*;
 use asmnes::Operand::*;
@@ -7,7 +8,7 @@ use asmnes::INSTRL;
 use remun::State;
 
 fn main() -> Result<(), AsmnesError> {
-    let test_program: Vec<u8> = asmnes::logical_assemble_plus(&[
+    let AsmnesOutput { program, labels } = asmnes::logical_assemble_plus(&[
         INSTRL::INSTR(INSTR(LDA, IMM, U8(0x02))),
         INSTRL::LABEL("HELLO_WORLD".to_string()),
         INSTRL::INSTR(INSTR(LDA, IMM, U8(0x02))),
@@ -25,9 +26,10 @@ fn main() -> Result<(), AsmnesError> {
         ram: [0; 0x0800],
     };
     // Fill ram with test program
-    for (i,ele) in test_program.iter().enumerate() {
+    for (i,ele) in program.iter().enumerate() {
         state.ram[i] = *ele;
     }
+    println!("labels: {:?}", labels);
     state.run_one_instruction();
     state.run_one_instruction();
     state.run_one_instruction();

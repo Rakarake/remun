@@ -206,8 +206,13 @@ pub fn logical_assemble(instructions: &[INSTRD]) -> Result<Vec<u8>, AsmnesError>
     Ok(bytes)
 }
 
+pub struct AsmnesOutput {
+    pub program: Vec<u8>,
+    pub labels: HashMap<String, u16>,
+}
+
 /// Accepts labels and instructions that can use labels
-pub fn logical_assemble_plus(program: &[INSTRL]) -> Result<Vec<u8>, AsmnesError> {
+pub fn logical_assemble_plus(program: &[INSTRL]) -> Result<AsmnesOutput, AsmnesError> {
     // Does not have labels filled out after this step
     let mut labels: HashMap<String, u16> = HashMap::new();
     let mut instrs: Vec<INSTRD> = Vec::new();
@@ -235,7 +240,7 @@ pub fn logical_assemble_plus(program: &[INSTRL]) -> Result<Vec<u8>, AsmnesError>
         }
     }
     
-    logical_assemble(&instrs)
+    Ok(AsmnesOutput { program: logical_assemble(&instrs)?, labels })
 }
 
 /// Struct for simple NES program debugging.
