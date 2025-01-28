@@ -31,6 +31,7 @@ fn main() -> Result<(), AsmnesError> {
     }
     println!("labels: {:?}", labels);
     state.run_one_instruction();
+    println!("a: {}", state.a);
     state.run_one_instruction();
     state.run_one_instruction();
     state.print_state();

@@ -284,7 +284,7 @@ impl INSTRD {
                 U8(b) => Ok(vec![index as u8, *b]),
                 U16(bs) => {
                     let mut x = vec![index as u8];
-                    x.extend_from_slice(&bs.to_be_bytes());
+                    x.extend_from_slice(&bs.to_le_bytes());
                     Ok(x)
                 },
                 Label(_) => {
