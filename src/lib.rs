@@ -51,11 +51,23 @@ impl State {
         opcodes::run(opcode, self, memory_target);
     }
 
+    pub fn print_state(&self) {
+        println!("\
+pc: {}
+a: {}
+x: {}
+y: {}
+sr: {}
+sp: {}
+cycles: {}\
+", self.pc, self.a, self.x, self.y, self.sr, self.sp, self.cycles);
+    }
+
     pub fn read(&mut self, address: u16) -> u8 {
         if RAM_RANGE.contains(address) {
             return self.ram[address as usize];
         } else {
-            unimplemented!()
+            unimplemented!("memory range: {}", address);
         }
     }
     pub fn write(&mut self, address: u16, value: u8) {

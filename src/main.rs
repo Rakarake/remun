@@ -10,8 +10,9 @@ fn main() -> Result<(), AsmnesError> {
     let test_program: Vec<u8> = asmnes::logical_assemble_plus(&[
         INSTRL::INSTR(INSTR(LDA, IMM, U8(0x02))),
         INSTRL::LABEL("HELLO_WORLD".to_string()),
-        INSTRL::INSTR(INSTR(STA, REL, Label("HELLO_WORLD".to_string()))),
-        INSTRL::INSTR(INSTR(LDA, REL, Label("HELLO_WORLD".to_string()))),
+        INSTRL::INSTR(INSTR(LDA, IMM, U8(0x02))),
+        INSTRL::INSTR(INSTR(STA, ABS, Label("HELLO_WORLD".to_string()))),
+        INSTRL::INSTR(INSTR(LDX, ABS, Label("HELLO_WORLD".to_string()))),
     ])?;
     let mut state = State {
         pc: 0,
@@ -28,7 +29,11 @@ fn main() -> Result<(), AsmnesError> {
         state.ram[i] = *ele;
     }
     state.run_one_instruction();
-    println!("{:?}", state.a);
+    state.run_one_instruction();
+    state.run_one_instruction();
+    state.print_state();
+    println!("addr 2!? {}", state.read(2)); // should be HELLO_WORLD label
+    println!("{:?}", state.x);
     Ok(())
 }
 

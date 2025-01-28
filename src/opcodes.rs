@@ -14,6 +14,11 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                     state.a = val;
                     state.sr = (val == 0) as u8;
                 },
+                LDX => {
+                    let val = state.read(addr);
+                    state.x = val;
+                    state.sr = (val == 0) as u8;
+                },
                 STA => {
                     state.write(addr, state.a);
                 },

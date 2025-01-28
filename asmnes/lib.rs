@@ -34,7 +34,8 @@ impl fmt::Display for AsmnesError {
 
 /// Does not produce the finalized binary, only a local byte array
 pub fn simple_assemble(input: &str) -> Result<Vec<u8>, AsmnesError> {
-    logical_assemble(&second_pass(&first_pass(input)?)?)
+    //logical_assemble(&second_pass(&first_pass(input)?)?)
+    Err(AsmnesError { line: 0, cause: "gluh".to_string() })
 }
 
 /// Parsing state
@@ -197,17 +198,10 @@ fn second_pass(input: &[INSTR]) -> Result<Vec<INSTR>, AsmnesError> {
 }
 
 /// Assembles from INSTR
-pub fn logical_assemble(instructions: &[INSTR]) -> Result<Vec<u8>, AsmnesError> {
+pub fn logical_assemble(instructions: &[INSTRD]) -> Result<Vec<u8>, AsmnesError> {
     let mut bytes: Vec<u8> = Vec::new();
     for i in instructions {
-        match i.get_bytes() {
-            Some(mut bs) => {
-                bytes.append(&mut bs);
-            },
-            None => {
-                return Err(AsmnesError { line: 0, cause: "no such instruction".to_string() });
-            },
-        }
+        bytes.append(&mut i.get_bytes()?);
     }
     Ok(bytes)
 }
@@ -216,23 +210,25 @@ pub fn logical_assemble(instructions: &[INSTR]) -> Result<Vec<u8>, AsmnesError> 
 pub fn logical_assemble_plus(program: &[INSTRL]) -> Result<Vec<u8>, AsmnesError> {
     // Does not have labels filled out after this step
     let mut labels: HashMap<String, u16> = HashMap::new();
-    let mut instrs: Vec<INSTR> = Vec::new();
+    let mut instrs: Vec<INSTRD> = Vec::new();
     let mut address: u16 = 0;
+    let mut line: usize = 1;
     for instrl in program {
         match instrl {
             INSTRL::INSTR(i) => {
-                instrs.push(i.clone());
+                instrs.push(INSTRD { instr: i.clone(), line, address });
                 address += i.1.get_len() as u16;
             },
             INSTRL::LABEL(l) => {
                 labels.insert(l.clone(), address);
             },
         }
+        line += 1;
     }
-    for i in &mut instrs {
-        if let Operand::Label(l) = &mut i.2 {
+    for INSTRD { instr, line: _, address: _ } in &mut instrs {
+        if let Operand::Label(l) = &mut instr.2 {
             if let Some(address) = labels.get(&*l) {
-                i.2 = Operand::U16(*address);
+                instr.2 = Operand::U16(*address);
             } else {
                 return Err(AsmnesError { line: 0, cause: "label does not exist".to_string() });
             }
@@ -269,9 +265,9 @@ struct INSTRD {
     address: u16,
 }
 
-impl INSTR {
-    pub fn get_bytes(&self) -> Option<Vec<u8>> {
-        let INSTR(op,a,operand) = self;
+impl INSTRD {
+    pub fn get_bytes(&self) -> Result<Vec<u8>, AsmnesError> {
+        let INSTRD { instr: INSTR(op,a,operand), line, address: _ }  = self;
         if let Some(index) = 
             INSTRUCTIONS.iter().position(|Instruction { opcode, addressing_mode }| {
                 op == opcode && a == addressing_mode
@@ -279,23 +275,23 @@ impl INSTR {
         {
             use Operand::*;
             match operand {
-                No => Some(vec![index as u8]),
-                U8(b) => Some(vec![index as u8, *b]),
+                No => Ok(vec![index as u8]),
+                U8(b) => Ok(vec![index as u8, *b]),
                 U16(bs) => {
                     let mut x = vec![index as u8];
                     x.extend_from_slice(&bs.to_be_bytes());
-                    Some(x)
+                    Ok(x)
                 },
                 Label(_) => {
-                    panic!("labels have to be resolved");
+                    Err(AsmnesError { line: *line, cause: "labels have to be resolved!".to_string() })
                 },
                 Variable(_) => {
-                    panic!("variables have to be resolved");
+                    Err(AsmnesError { line: *line, cause: "variables have to be resloved!".to_string() })
                 },
             }
         }
         else {
-            None
+            Err(AsmnesError { line: *line, cause: "no such opcode-operand combination".to_string() })
         }
     }
 }
