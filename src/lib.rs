@@ -1,5 +1,6 @@
 pub mod opcodes;
 pub mod addressing_modes;
+pub mod memory;
 
 use shared::Opcode;
 use shared::AddressingMode;
@@ -7,15 +8,15 @@ use shared::Instruction;
 use shared::INSTRUCTIONS;
 
 /// `0`: inclusive, `1`: exclusive
-struct Range(u16, u16);
+#[derive(Clone, Copy)]
+pub struct Range(pub u16, pub u16);
 impl Range {
     fn contains(&self, value: u16) -> bool {
         value >= self.0 && value < self.1
     }
 }
 
-const RAM_RANGE: Range = Range(0x0000, 0x0100);
-
+/// The state of the NES, registers, all devices mapped to memory-regions
 pub struct State {
     /// Program counter
     pub pc: u16,            
@@ -39,8 +40,13 @@ pub struct State {
     pub sp: u8,             
     /// Number of cycles that have passed
     pub cycles: u64,        
-    /// System RAM: $0000-$07FF, 2KiB
-    pub ram: [u8; 0x0800],  
+    pub devices: Vec<Box<dyn Device>>,
+}
+
+pub trait Device {
+    fn get_range(&self) -> Range;
+    fn read(&mut self, address: u16) -> u8;
+    fn write(&mut self, address: u16, value: u8);
 }
 
 impl State {
@@ -64,18 +70,23 @@ cycles: {}\
     }
 
     pub fn read(&mut self, address: u16) -> u8 {
-        if RAM_RANGE.contains(address) {
-            return self.ram[address as usize];
-        } else {
-            unimplemented!("memory range: {}", address);
+        // TODO check that multiple devices overlap
+        for device in self.devices.iter_mut() {
+            if device.get_range().contains(address) {
+                return device.read(address)
+            }
         }
+        unimplemented!("memory range: {}", address);
     }
     pub fn write(&mut self, address: u16, value: u8) {
-        if address < 0x0800 {
-            self.ram[address as usize] = value;
-        } else {
-            unimplemented!()
+        // TODO check that multiple devices overlap
+        for device in self.devices.iter_mut() {
+            if device.get_range().contains(address) {
+                device.write(address, value);
+                return;
+            }
         }
+        unimplemented!("memory range: {}", address);
     }
 }
 

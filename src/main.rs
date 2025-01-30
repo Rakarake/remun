@@ -6,6 +6,10 @@ use asmnes::Operand::*;
 use asmnes::INSTR;
 use asmnes::INSTRL;
 use remun::State;
+use remun::Range;
+
+// TODO make asmnes program struct, takes in ines or (prg, debug, char)? (no, depends on mappers)
+// new_form_regions(regions, debug)
 
 fn main() -> Result<(), AsmnesError> {
     let AsmnesOutput { program, labels } = asmnes::logical_assemble_plus(&[
@@ -15,6 +19,12 @@ fn main() -> Result<(), AsmnesError> {
         INSTRL::INSTR(INSTR(STA, ABS, Label("HELLO_WORLD".to_string()))),
         INSTRL::INSTR(INSTR(LDX, ABS, Label("HELLO_WORLD".to_string()))),
     ])?;
+    /// System RAM: $0000-$07FF, 2KiB
+    let mut ram = remun::RAM { range: Range(0, 0x0100), memory: [0; 0x0800] };
+    // Fill ram with test program
+    for (i,ele) in program.iter().enumerate() {
+        ram.memory[i] = *ele;
+    }
     let mut state = State {
         pc: 0,
         a: 0,
@@ -23,12 +33,8 @@ fn main() -> Result<(), AsmnesError> {
         sr: 0,
         sp: 0xFF,
         cycles: 0,
-        ram: [0; 0x0800],
+        devices: vec![Box::new(ram)],
     };
-    // Fill ram with test program
-    for (i,ele) in program.iter().enumerate() {
-        state.ram[i] = *ele;
-    }
     println!("labels: {:?}", labels);
     state.run_one_instruction();
     println!("a: {}", state.a);
