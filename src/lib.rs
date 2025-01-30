@@ -7,13 +7,10 @@ use shared::AddressingMode;
 use shared::Instruction;
 use shared::INSTRUCTIONS;
 
-/// `0`: inclusive, `1`: exclusive
-#[derive(Clone, Copy)]
-pub struct Range(pub u16, pub u16);
-impl Range {
-    fn contains(&self, value: u16) -> bool {
-        value >= self.0 && value < self.1
-    }
+pub trait Device {
+    fn get_range(&self) -> Range;
+    fn read(&mut self, address: u16) -> u8;
+    fn write(&mut self, address: u16, value: u8);
 }
 
 /// The state of the NES, registers, all devices mapped to memory-regions
@@ -41,12 +38,6 @@ pub struct State {
     /// Number of cycles that have passed
     pub cycles: u64,        
     pub devices: Vec<Box<dyn Device>>,
-}
-
-pub trait Device {
-    fn get_range(&self) -> Range;
-    fn read(&mut self, address: u16) -> u8;
-    fn write(&mut self, address: u16, value: u8);
 }
 
 impl State {
@@ -91,10 +82,20 @@ cycles: {}\
 }
 
 /// An addressing mode addresses memory, one of these.
+/// Data output form addressing mode, input to opcode
 #[derive(Debug, PartialEq, Eq)]
 pub enum MemoryTarget {
     Address(u16),
     Accumulator,
     Impl,
+}
+
+/// `0`: inclusive, `1`: exclusive
+#[derive(Clone, Copy)]
+pub struct Range(pub u16, pub u16);
+impl Range {
+    fn contains(&self, value: u16) -> bool {
+        value >= self.0 && value < self.1
+    }
 }
 
