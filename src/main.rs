@@ -20,7 +20,7 @@ fn main() -> Result<(), AsmnesError> {
         INSTRL::INSTR(INSTR(LDX, ABS, Label("HELLO_WORLD".to_string()))),
     ])?;
     /// System RAM: $0000-$07FF, 2KiB
-    let mut ram = remun::RAM { range: Range(0, 0x0100), memory: [0; 0x0800] };
+    let mut ram = remun::memory::RAM { range: Range(0, 0x0100), memory: [0; 0x0800] };
     // Fill ram with test program
     for (i,ele) in program.iter().enumerate() {
         ram.memory[i] = *ele;
