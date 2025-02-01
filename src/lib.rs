@@ -2,16 +2,12 @@ pub mod opcodes;
 pub mod addressing_modes;
 pub mod memory;
 
+use std::usize;
+
 use shared::Opcode;
 use shared::AddressingMode;
 use shared::Instruction;
 use shared::INSTRUCTIONS;
-
-pub trait Device {
-    fn get_range(&self) -> Range;
-    fn read(&mut self, address: u16) -> u8;
-    fn write(&mut self, address: u16, value: u8);
-}
 
 /// The state of the NES, registers, all devices mapped to memory-regions
 pub struct State {
@@ -37,10 +33,51 @@ pub struct State {
     pub sp: u8,             
     /// Number of cycles that have passed
     pub cycles: u64,        
-    pub devices: Vec<Box<dyn Device>>,
+    /// The devices
+    pub memory: Vec<MemoryMap>,
+}
+
+/// A device with can be mapped to memory regions on the cpu-bus or the ppu-bus
+pub struct MemoryMap {
+    memory_regions: Vec<MemoryRegion>,
+    device: Device,
+}
+/// A memory range on the cpu or ppu
+pub struct MemoryRegion {
+    on_cpu: bool,
+    range: Range,
+}
+pub enum Device {
+    RAM(Vec<u8>),
+    ROM(Vec<u8>),
 }
 
 impl State {
+    /// prg: 16KiB, chr: 8KiB
+    fn new_nrom128(prg: &[u8; 0x4000], chr: &[u8; 0x2000]) -> Self {
+        Self {
+            pc: 0,
+            a: 0,
+            x: 0,
+            y: 0,
+            sr: 0,
+            sp: 0xFF,
+            cycles: 0,
+            memory: vec![
+                // built in ram
+                MemoryMap {
+                    range: Range(0x0000, 0x0100),
+                    device: Device::RAM(vec![0 ; 0x0100]),
+                },
+                // prg
+                MemoryMap {
+                    range: Range(0x0000, 0x0100),
+                    device: Device::RAM(chr.to_vec()),
+                },
+            ],
+        }
+    }
+
     pub fn run_one_instruction(&mut self) {
         let instr = self.read(self.pc);
         let Instruction { opcode, addressing_mode } = INSTRUCTIONS[instr as usize].clone();
@@ -61,23 +98,28 @@ cycles: {}\
     }
 
     pub fn read(&mut self, address: u16) -> u8 {
-        // TODO check that multiple devices overlap
-        for device in self.devices.iter_mut() {
-            if device.get_range().contains(address) {
-                return device.read(address)
+        if let Some(d) = self.memory.iter().find(|d| d.range.contains(address)) {
+            match &d.device {
+                Device::RAM(bytes) => {
+                    return bytes[address as usize];
+                },
+                Device::ROM(bytes) => {
+                    return bytes[address as usize];
+                },
             }
         }
-        unimplemented!("memory range: {}", address);
+        return 0;
     }
     pub fn write(&mut self, address: u16, value: u8) {
-        // TODO check that multiple devices overlap
-        for device in self.devices.iter_mut() {
-            if device.get_range().contains(address) {
-                device.write(address, value);
-                return;
+        if let Some(d) = self.memory.iter_mut().find(|d| d.range.contains(address)) {
+            match &mut d.device {
+                Device::RAM(bytes) => {
+                    bytes[address as usize] = value;
+                },
+                Device::ROM(_bytes) => {
+                },
             }
         }
-        unimplemented!("memory range: {}", address);
     }
 }
 

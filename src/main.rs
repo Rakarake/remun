@@ -19,30 +19,32 @@ fn main() -> Result<(), AsmnesError> {
         INSTRL::INSTR(INSTR(STA, ABS, Label("HELLO_WORLD".to_string()))),
         INSTRL::INSTR(INSTR(LDX, ABS, Label("HELLO_WORLD".to_string()))),
     ])?;
-    /// System RAM: $0000-$07FF, 2KiB
-    let mut ram = remun::memory::RAM { range: Range(0, 0x0100), memory: [0; 0x0800] };
-    // Fill ram with test program
-    for (i,ele) in program.iter().enumerate() {
-        ram.memory[i] = *ele;
-    }
-    let mut state = State {
-        pc: 0,
-        a: 0,
-        x: 0,
-        y: 0,
-        sr: 0,
-        sp: 0xFF,
-        cycles: 0,
-        devices: vec![Box::new(ram)],
-    };
-    println!("labels: {:?}", labels);
-    state.run_one_instruction();
-    println!("a: {}", state.a);
-    state.run_one_instruction();
-    state.run_one_instruction();
-    state.print_state();
-    println!("addr 2!? {}", state.read(2)); // should be HELLO_WORLD label
-    println!("{:?}", state.x);
+    // System RAM: $0000-$07FF, 2KiB
+    //let mut ram_bytes = vec![0; 1];
+    //let mut ram = remun::Device::RAM();
+    //// Fill ram with test program
+    //for (i,ele) in program.iter().enumerate() {
+    //    ram[i] = *ele;
+    //}
+    //let mut state = State {
+    //    pc: 0,
+    //    a: 0,
+    //    x: 0,
+    //    y: 0,
+    //    sr: 0,
+    //    sp: 0xFF,
+    //    cycles: 0,
+    //    devices: vec![Box::new(ram)],
+    //};
+    //println!("labels: {:?}", labels);
+    //state.run_one_instruction();
+    //println!("a: {}", state.a);
+    //state.run_one_instruction();
+    //state.run_one_instruction();
+    //state.run_one_instruction();
+    //state.print_state();
+    //println!("addr 2!? {}", state.read(2)); // should be HELLO_WORLD label
+    //println!("{:?}", state.x);
     Ok(())
 }
 
