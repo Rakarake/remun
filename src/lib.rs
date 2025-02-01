@@ -121,15 +121,16 @@ impl State {
 
     pub fn print_state(&self) {
         println!("\
-pc: {}
-a: {}
-x: {}
-y: {}
-sr: {}
-sp: {}
+pc: {:#06X}
+a: {:#06X}
+x: {:#06X}
+y: {:#06X}
+sr: {:#06X}
+sp: {:#06X}
 cycles: {}\
 ", self.pc, self.a, self.x, self.y, self.sr, self.sp, self.cycles);
     }
+
     fn try_address(&mut self, address: u16) -> Option<(&mut Device, Range)> {
         if let Some((m, r)) = self.memory.iter_mut().find_map(|m| {
                 if let Some(r) = m.memory_regions.iter().find_map(|r| {
