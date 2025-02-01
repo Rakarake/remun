@@ -54,6 +54,7 @@ pub enum Device {
 }
 /// There are separate address spaces, the CPU + some PPU ones
 /// https://www.nesdev.org/wiki/PPU
+#[derive(PartialEq)]
 pub enum AddressSpace {
     CPU,
     PPU,
@@ -61,9 +62,9 @@ pub enum AddressSpace {
 
 impl State {
     /// prg: 16KiB, chr: 8KiB
-    fn new_nrom128(prg: &[u8; 0x4000], chr: &[u8; 0x2000]) -> Self {
+    pub fn new_nrom128(prg: Vec<u8>, chr: Vec<u8>) -> Self {
         Self {
-            pc: 0,
+            pc: 0xC000,
             a: 0,
             x: 0,
             y: 0,
@@ -94,7 +95,7 @@ impl State {
                             range: Range(0xC000, 0xFFFF),
                         },
                     ],
-                    device: Device::ROM(prg.to_vec()),
+                    device: Device::ROM(prg),
                 },
                 // chr
                 MemoryMap {
@@ -105,7 +106,7 @@ impl State {
                             range: Range(0x0000, 0x0000),
                         },
                     ],
-                    device: Device::ROM(chr.to_vec()),
+                    device: Device::ROM(chr),
                 },
             ],
         }
@@ -131,26 +132,47 @@ cycles: {}\
     }
 
     pub fn read(&mut self, address: u16) -> u8 {
-        if let Some(d) = self.memory.iter().find(|d| d.range.contains(address)) {
-            match &d.device {
+        if let Some((m, r)) = self.memory.iter().find_map(|m| {
+                if let Some(r) = m.memory_regions.iter().find_map(|r| {
+                    if r.address_space == AddressSpace::CPU && r.range.contains(address){
+                        Some(r.range)
+                    } else {
+                        None
+                    }
+                }) {
+                    Some((m, r))
+                } else {
+                    None
+                }
+
+        }) {
+            match &m.device {
                 Device::RAM(bytes) => {
-                    return bytes[address as usize];
+                    return bytes[address as usize - r.0 as usize];
                 },
                 Device::ROM(bytes) => {
-                    return bytes[address as usize];
+                    let index = address as usize - r.0 as usize;
+                    // This means supplied ROM does not have to be filled
+                    if index < bytes.len() {
+                        return bytes[index];
+                    } else {
+                        return 0;
+                    }
                 },
             }
         }
         return 0;
     }
     pub fn write(&mut self, address: u16, value: u8) {
-        if let Some(d) = self.memory.iter_mut().find(|d| d.range.contains(address)) {
+        if let Some(d) = self.memory.iter_mut().find(|d| {
+                d.memory_regions.iter().any(|r|
+                    r.address_space == AddressSpace::CPU && r.range.contains(address)
+                )}) {
             match &mut d.device {
                 Device::RAM(bytes) => {
                     bytes[address as usize] = value;
                 },
-                Device::ROM(_bytes) => {
-                },
+                Device::ROM(bytes) => { },
             }
         }
     }
