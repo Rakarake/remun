@@ -119,6 +119,12 @@ impl State {
         opcodes::run(opcode, self, memory_target);
     }
 
+    pub fn run_instructions(&mut self, n_instructions: u32) {
+        for _ in 0..n_instructions {
+            self.run_one_instruction();
+        }
+    }
+
     pub fn print_state(&self) {
         println!("\
 pc: {:#06X}
