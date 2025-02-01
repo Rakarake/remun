@@ -44,12 +44,19 @@ pub struct MemoryMap {
 }
 /// A memory range on the cpu or ppu
 pub struct MemoryRegion {
-    on_cpu: bool,
+    /// Memory could be on cpu/ppu
+    address_space: AddressSpace,
     range: Range,
 }
 pub enum Device {
     RAM(Vec<u8>),
     ROM(Vec<u8>),
+}
+/// There are separate address spaces, the CPU + some PPU ones
+/// https://www.nesdev.org/wiki/PPU
+pub enum AddressSpace {
+    CPU,
+    PPU,
 }
 
 impl State {
@@ -66,13 +73,39 @@ impl State {
             memory: vec![
                 // built in ram
                 MemoryMap {
-                    range: Range(0x0000, 0x0100),
-                    device: Device::RAM(vec![0 ; 0x0100]),
+                    memory_regions: vec![
+                        MemoryRegion {
+                            address_space: AddressSpace::CPU,
+                            range: Range(0x0000, 0x0800),
+                        },
+                    ],
+                    device: Device::RAM(vec![0 ; 0x0800]),
                 },
                 // prg
                 MemoryMap {
-                    range: Range(0x0000, 0x0100),
-                    device: Device::RAM(chr.to_vec()),
+                    memory_regions: vec![
+                        MemoryRegion {
+                            address_space: AddressSpace::CPU,
+                            range: Range(0x8000, 0xBFFF),
+                        },
+                        // mirrored
+                        MemoryRegion {
+                            address_space: AddressSpace::CPU,
+                            range: Range(0xC000, 0xFFFF),
+                        },
+                    ],
+                    device: Device::ROM(prg.to_vec()),
+                },
+                // chr
+                MemoryMap {
+                    memory_regions: vec![
+                        MemoryRegion {
+                            address_space: AddressSpace::PPU,
+                            // TODO when working with the ppu
+                            range: Range(0x0000, 0x0000),
+                        },
+                    ],
+                    device: Device::ROM(chr.to_vec()),
                 },
             ],
         }
