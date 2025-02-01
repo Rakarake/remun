@@ -173,7 +173,7 @@ cycles: {}\
         if let Some((d, r)) = self.try_address(address) {
             match d {
                 Device::RAM(bytes) => {
-                    bytes[address as usize] = value;
+                    bytes[address as usize - r.0 as usize] = value;
                 },
                 Device::ROM(bytes) => { },
             }
