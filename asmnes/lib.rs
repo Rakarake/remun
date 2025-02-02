@@ -58,7 +58,7 @@ fn logical_assemble_second_pass(instructions: &[INSTRD]) -> Result<Vec<u8>, Asmn
 }
 
 /// Accepts labels and instructions that can use labels
-pub fn logical_assemble_plus(program: &[INSTRL]) -> Result<AsmnesOutput, AsmnesError> {
+pub fn logical_assemble(program: &[INSTRL]) -> Result<AsmnesOutput, AsmnesError> {
     // Does not have labels filled out after this step
     let mut labels: HashMap<String, u16> = HashMap::new();
     let mut instrs: Vec<INSTRD> = Vec::new();
@@ -72,7 +72,9 @@ pub fn logical_assemble_plus(program: &[INSTRL]) -> Result<AsmnesOutput, AsmnesE
             },
             INSTRL::LABEL(l) => {
                 instrs.push(INSTRD { instr: INSTRL::LABEL(l.clone()), line, address });
-                labels.insert(l.clone(), address);
+                if labels.insert(l.clone(), address).is_some() {
+                    return Err(AsmnesError { line, cause: "label already defined".to_string() });
+                }
             },
             INSTRL::DIR(d) => {
                 instrs.push(INSTRD { instr: INSTRL::DIR(d.clone()), line, address });

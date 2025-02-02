@@ -12,7 +12,7 @@ use remun::State;
 // new_form_regions(regions, debug)
 
 fn main() -> Result<(), AsmnesError> {
-    let AsmnesOutput { program, labels } = asmnes::logical_assemble_plus(&[
+    let AsmnesOutput { program, labels } = asmnes::logical_assemble(&[
         INSTRL::INSTR(INSTR(LDA, IMM, U8(0x02))),
         INSTRL::INSTR(INSTR(STA, ABS, Label("VAR_A".to_string()))),
         INSTRL::INSTR(INSTR(LDX, ABS, Label("VAR_A".to_string()))),
