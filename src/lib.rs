@@ -139,13 +139,12 @@ cycles: {}\
 
     /// Helper function to get the device and the range
     fn try_address(&mut self, address_space: AddressSpace, address: u16) -> Option<(&mut Device, Range)> {
-        let (device, memory_region) = self.memory.iter_mut().find_map(|m| {
+        self.memory.iter_mut().find_map(|m| {
             m.memory_regions.iter().find(|mr|
                 mr.address_space == address_space &&
                 mr.range.contains(address)
-            ).map(|mr| (&mut m.device, mr))
-        })?;
-        Some((device, memory_region.range))
+            ).map(|mr| (&mut m.device, mr.range))
+        })
     }
     pub fn read(&mut self, address: u16) -> u8 {
         if let Some((d, r)) = self.try_address(AddressSpace::CPU, address) {
