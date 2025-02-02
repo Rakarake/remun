@@ -14,6 +14,40 @@ pub struct AsmnesOutput {
     pub labels: HashMap<String, u16>,
 }
 
+/// An instruction, nothing else
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct INSTR(pub Opcode, pub AddressingMode, pub Operand);
+
+/// A possible line in the assembly
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum INSTRL {
+    INSTR(INSTR),
+    LABEL(String),
+    DIR(Directive),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Operand {
+    No,
+    U8(u8),
+    U16(u16),
+    Label(String),
+    Variable(String),
+}
+
+/// INSTR, decorated with metadata
+struct INSTRD {
+    instr: INSTRL,
+    line: usize,
+    address: u16,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Directive {
+    /// Reserve n bytes
+    RS(u16),
+}
+
 /// Assembles from INSTR
 fn logical_assemble_second_pass(instructions: &[INSTRD]) -> Result<Vec<u8>, AsmnesError> {
     let mut bytes: Vec<u8> = Vec::new();
@@ -60,34 +94,6 @@ pub fn logical_assemble_plus(program: &[INSTRL]) -> Result<AsmnesOutput, AsmnesE
     Ok(AsmnesOutput { program: logical_assemble_second_pass(&instrs)?, labels })
 }
 
-/// Struct for simple NES program debugging.
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct INSTR(pub Opcode, pub AddressingMode, pub Operand);
-
-/// INSTR or labels or directives
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum INSTRL {
-    INSTR(INSTR),
-    LABEL(String),
-    DIR(Directive),
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Operand {
-    No,
-    U8(u8),
-    U16(u16),
-    Label(String),
-    Variable(String),
-}
-
-/// INSTR, decorated
-struct INSTRD {
-    instr: INSTRL,
-    line: usize,
-    address: u16,
-}
-
 impl INSTRD {
     pub fn get_bytes(&self) -> Result<Vec<u8>, AsmnesError> {
         let INSTRD { instr, line, address: _ }  = self;
@@ -125,13 +131,6 @@ impl INSTRD {
             INSTRL::DIR(d) => { Ok(d.get_bytes()) },
         }
     }
-}
-
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Directive {
-    /// Reserve n bytes
-    RS(u16),
 }
 
 impl Directive {
