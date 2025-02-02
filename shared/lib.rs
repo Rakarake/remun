@@ -33,7 +33,7 @@ pub enum AddressingMode {
 
 impl AddressingMode {
     /// Get the length of an instruction using this addressing mode
-    pub fn get_len(&self) -> usize {
+    pub fn get_len(&self) -> u16 {
         match self {
             AddressingMode::IMPL => 1,
             AddressingMode::A => 1,

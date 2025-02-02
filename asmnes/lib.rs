@@ -1,214 +1,26 @@
 #![feature(let_chains)]
 
+/// For now, only logical assemble
+
 use shared::Opcode;
 use shared::AddressingMode;
 use shared::Instruction;
-use shared::opcode_iter;
 use shared::INSTRUCTIONS;
-use std::char;
-use std::error::Error;
 use std::fmt;
 use std::collections::HashMap;
-use std::ops::Index;
 
-pub const MORG: u32 = 3;
-
-#[derive(Debug)]
-pub struct AsmnesError {
-    line: usize,
-    cause: String,
-}
-
-impl fmt::Display for AsmnesError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "error on line: {}, cause: {}", self.line, self.cause)
-    }
-}
-
-// lables: 16bit, variables: 8bit
-// Lex: lex
-// First pass: parse, get byte layout, get a map of labels->address and variables->values
-// Second pass: codegen over lexed input resolving using map of labels/variables 
-
-// Lexing: we should use &str!
-
-/// Does not produce the finalized binary, only a local byte array
-pub fn simple_assemble(input: &str) -> Result<Vec<u8>, AsmnesError> {
-    //logical_assemble(&second_pass(&first_pass(input)?)?)
-    Err(AsmnesError { line: 0, cause: "gluh".to_string() })
-}
-
-/// Parsing state
-struct State {
-    line: usize,
-}
-
-enum Token {
-    Ident(String),
-    Opcode(Opcode),
-    Colon,
-    Comma,
-    Hash,
-    BeginPar,
-    EndPar,
-    Percent,
-}
-
-struct DecoratedToken {
-    token: Token,
-    line: usize,
-    col: usize,
-}
-
-// 3 cases: opeartion, label, variable+directive, directive.
-
-fn lex(i: &str) -> Result<Vec<DecoratedToken>, AsmnesError> {
-    let mut chars = i.chars().peekable();
-    let mut tokens: Vec<DecoratedToken> = Vec::new();
-    let mut ident = String::new();
-    let mut line = 1;
-    let mut col = 1;
-    let mut in_comment = false;
-    while let Some(c) = chars.next() {
-        if !in_comment {
-            match c {
-                ';' => {
-                    lex_try_add_ident(&ident, &mut tokens, line, col);
-                    in_comment = true;
-                },
-                '\n' => {
-                    lex_try_add_ident(&ident, &mut tokens, line, col);
-                    line += 1;
-                    // One below, it is incremented later
-                    col = 0;
-                    in_comment = false;
-                },
-                ' ' => {
-                    lex_try_add_ident(&ident, &mut tokens, line, col);
-                },
-                ':' => {
-                    lex_try_add_ident(&ident, &mut tokens, line, col);
-                    tokens.push(DecoratedToken { token: Token::Colon, line, col });
-                },
-                '#' => {
-                    lex_try_add_ident(&ident, &mut tokens, line, col);
-                    tokens.push(DecoratedToken { token: Token::Hash, line, col });
-                },
-                '$' => {
-                },
-                _ => {
-
-                    ident.push(c);
-                }
-            }
-        }
-        col += 1;
-    }
-    Err(AsmnesError { line: 0, cause: "end of file".to_string() })
-}
-
-// After a word, or something
-fn lex_try_add_ident(ident: &String, tokens: &mut Vec<DecoratedToken>, line: usize, col: usize) {
-    // An opcode
-    if ident.len() == 3
-        && let Some(o) = opcode_iter().find_map(|o| if o.to_string() == *ident { Some(o) } else { None })
-    {
-        tokens.push(DecoratedToken { token: Token::Opcode(o), line, col });
-    }
-    if !ident.is_empty() {
-        tokens.push(DecoratedToken { token: Token::Ident(ident.clone()), line, col });
-    }
-}
-
-fn p_opcode<'a>(i: &'a str, s: &State) -> Result<(Opcode, &'a str), AsmnesError> {
-    if i.len() >= 3 {
-        let word = &i[..3];
-        if let Some(o) = opcode_iter().find_map(|o| if o.to_string() == word { Some(o) } else { None }) {
-            Ok((o, &i[3..]))
-        } else {
-            Err(AsmnesError { line: s.line, cause: "not an opcode".to_string() })
-        }
-    } else {
-        Err(AsmnesError { line: s.line, cause: "end of file".to_string() })
-    }
-}
-
-fn p_optional_spacing(i: &str) -> &str {
-    let mut i = i;
-    while i.starts_with(' ') || i.starts_with('\t') {
-        i = &i[1..];
-    }
-    i
-}
-
-fn p_spacing<'a>(i: &'a str, s: &State) -> Result<((), &'a str), AsmnesError> {
-    if i.starts_with(' ') || i.starts_with('\t') {
-        Ok(((), p_optional_spacing(i)))
-    } else {
-        Err(AsmnesError { line: s.line, cause: "expected spacing".to_string() })
-    }
-}
-
-fn p_label<'a>(i: &'a str, s: &State) -> Result<(String, &'a str), AsmnesError> {
-    let label: String = i.chars().take_while(|c| *c != ':').collect::<String>();
-    let i = &i[label.len()..];
-    Ok((label, i))
-}
-
-fn p_end_of_line<'a>(i: &'a str, s: &State) -> Result<((), &'a str), AsmnesError> {
-    let i = p_optional_spacing(i);
-    if i.starts_with('\n') {
-        Ok(((), i))
-    } else {
-        Err(AsmnesError { line: s.line, cause: "expecting end of line".to_string() })
-    }
-}
-
-fn p_comment<'a>(i: &'a str, s: &State) -> Result<((), &'a str), AsmnesError> {
-    if i.starts_with(';') {
-        if let Some((idx, _)) = i.match_indices('\n').next() {
-            let i = &i[idx+1..];
-            Ok(((), i))
-        } else {
-            Ok(((), ""))
-        }
-    } else {
-        Err(AsmnesError { line: s.line, cause: "expecting comment".to_string() })
-    }
-}
-
-fn p_line<'a>(i: &'a str, s: &State) -> Result<Option<(&'a str, INSTR)>, AsmnesError> {
-    // label or indented ISNTR
-
-    Err(AsmnesError { line: s.line, cause: "end of file".to_string() })
-}
-
-/// Lexing
-fn first_pass(input: &str) -> Result<Vec<INSTR>, AsmnesError> {
-    // try parse an opcode
-    if input.len() >= 3 {
-        let glob = &input[..2];
-
-    }
-    return Ok(vec![]);
-}
-
-fn second_pass(input: &[INSTR]) -> Result<Vec<INSTR>, AsmnesError> {
-    return Ok(vec![]);
+pub struct AsmnesOutput {
+    pub program: Vec<u8>,
+    pub labels: HashMap<String, u16>,
 }
 
 /// Assembles from INSTR
-pub fn logical_assemble(instructions: &[INSTRD]) -> Result<Vec<u8>, AsmnesError> {
+fn logical_assemble_second_pass(instructions: &[INSTRD]) -> Result<Vec<u8>, AsmnesError> {
     let mut bytes: Vec<u8> = Vec::new();
     for i in instructions {
         bytes.append(&mut i.get_bytes()?);
     }
     Ok(bytes)
-}
-
-pub struct AsmnesOutput {
-    pub program: Vec<u8>,
-    pub labels: HashMap<String, u16>,
 }
 
 /// Accepts labels and instructions that can use labels
@@ -221,37 +33,43 @@ pub fn logical_assemble_plus(program: &[INSTRL]) -> Result<AsmnesOutput, AsmnesE
     for instrl in program {
         match instrl {
             INSTRL::INSTR(i) => {
-                instrs.push(INSTRD { instr: i.clone(), line, address });
-                address += i.1.get_len() as u16;
+                instrs.push(INSTRD { instr: INSTRL::INSTR(i.clone()), line, address });
+                address += i.1.get_len();
             },
             INSTRL::LABEL(l) => {
+                instrs.push(INSTRD { instr: INSTRL::LABEL(l.clone()), line, address });
                 labels.insert(l.clone(), address);
+            },
+            INSTRL::DIR(d) => {
+                instrs.push(INSTRD { instr: INSTRL::DIR(d.clone()), line, address });
+                address += d.get_len();
             },
         }
         line += 1;
     }
     for INSTRD { instr, line: _, address: _ } in &mut instrs {
-        if let Operand::Label(l) = &mut instr.2 {
+        if let INSTRL::INSTR(i) = instr && let Operand::Label(l) = &mut i.2 {
             if let Some(address) = labels.get(&*l) {
-                instr.2 = Operand::U16(*address);
+                i.2 = Operand::U16(*address);
             } else {
                 return Err(AsmnesError { line: 0, cause: "label does not exist".to_string() });
             }
         }
     }
     
-    Ok(AsmnesOutput { program: logical_assemble(&instrs)?, labels })
+    Ok(AsmnesOutput { program: logical_assemble_second_pass(&instrs)?, labels })
 }
 
 /// Struct for simple NES program debugging.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct INSTR(pub Opcode, pub AddressingMode, pub Operand);
 
-/// INSTR or labels
+/// INSTR or labels or directives
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum INSTRL {
     INSTR(INSTR),
     LABEL(String),
+    DIR(Directive),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -265,39 +83,84 @@ pub enum Operand {
 
 /// INSTR, decorated
 struct INSTRD {
-    instr: INSTR,
+    instr: INSTRL,
     line: usize,
     address: u16,
 }
 
 impl INSTRD {
     pub fn get_bytes(&self) -> Result<Vec<u8>, AsmnesError> {
-        let INSTRD { instr: INSTR(op,a,operand), line, address: _ }  = self;
-        if let Some(index) = 
-            INSTRUCTIONS.iter().position(|Instruction { opcode, addressing_mode }| {
-                op == opcode && a == addressing_mode
-            })
-        {
-            use Operand::*;
-            match operand {
-                No => Ok(vec![index as u8]),
-                U8(b) => Ok(vec![index as u8, *b]),
-                U16(bs) => {
-                    let mut x = vec![index as u8];
-                    x.extend_from_slice(&bs.to_le_bytes());
-                    Ok(x)
-                },
-                Label(_) => {
-                    Err(AsmnesError { line: *line, cause: "labels have to be resolved!".to_string() })
-                },
-                Variable(_) => {
-                    Err(AsmnesError { line: *line, cause: "variables have to be resloved!".to_string() })
-                },
-            }
+        let INSTRD { instr, line, address: _ }  = self;
+        match instr {
+            INSTRL::INSTR(i) => {
+                let INSTR(op, a, operand) = i;
+                if let Some(index) = 
+                    INSTRUCTIONS.iter().position(|Instruction { opcode, addressing_mode }| {
+                        op == opcode && a == addressing_mode
+                    })
+                {
+                    use Operand::*;
+                    match operand {
+                        No => Ok(vec![index as u8]),
+                        U8(b) => Ok(vec![index as u8, *b]),
+                        U16(bs) => {
+                            let mut x = vec![index as u8];
+                            x.extend_from_slice(&bs.to_le_bytes());
+                            Ok(x)
+                        },
+                        Label(_) => {
+                            Err(AsmnesError { line: *line, cause: "labels have to be resolved!".to_string() })
+                        },
+                        Variable(_) => {
+                            Err(AsmnesError { line: *line, cause: "variables have to be resloved!".to_string() })
+                        },
+                    }
+                }
+                else {
+                    Err(AsmnesError { line: *line, cause: "no such opcode-operand combination".to_string() })
+                }
+            },
+            // labels don't take up any space 🤷
+            INSTRL::LABEL(_) => { Ok(Vec::new()) },
+            INSTRL::DIR(d) => { Ok(d.get_bytes()) },
         }
-        else {
-            Err(AsmnesError { line: *line, cause: "no such opcode-operand combination".to_string() })
+    }
+}
+
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Directive {
+    /// Reserve n bytes
+    RS(u16),
+}
+
+impl Directive {
+    fn get_bytes(&self) -> Vec<u8> {
+        match self {
+            Directive::RS(n) => {
+                vec![0; *n as usize]
+            },
         }
+    }
+    fn get_len(&self) -> u16 {
+        match self {
+            Directive::RS(n) => {
+                *n
+            },
+        }
+    }
+}
+
+
+#[derive(Debug)]
+pub struct AsmnesError {
+    line: usize,
+    cause: String,
+}
+
+impl fmt::Display for AsmnesError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "error on line: {}, cause: {}", self.line, self.cause)
     }
 }
 
