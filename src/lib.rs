@@ -137,28 +137,18 @@ cycles: {}\
 ", self.pc, self.a, self.x, self.y, self.sr, self.sp, self.cycles);
     }
 
-    fn try_address(&mut self, address: u16) -> Option<(&mut Device, Range)> {
-        if let Some((m, r)) = self.memory.iter_mut().find_map(|m| {
-                if let Some(r) = m.memory_regions.iter().find_map(|r| {
-                    if r.address_space == AddressSpace::CPU && r.range.contains(address){
-                        Some(r.range)
-                    } else {
-                        None
-                    }
-                }) {
-                    Some((m, r))
-                } else {
-                    None
-                }
-
-        }) {
-            Some((&mut m.device, r))
-        } else {
-            None
-        }
+    /// Helper function to get the device and the range
+    fn try_address(&mut self, address_space: AddressSpace, address: u16) -> Option<(&mut Device, Range)> {
+        let (device, memory_region) = self.memory.iter_mut().find_map(|m| {
+            m.memory_regions.iter().find(|mr|
+                mr.address_space == address_space &&
+                mr.range.contains(address)
+            ).map(|mr| (&mut m.device, mr))
+        })?;
+        Some((device, memory_region.range))
     }
     pub fn read(&mut self, address: u16) -> u8 {
-        if let Some((d, r)) = self.try_address(address) {
+        if let Some((d, r)) = self.try_address(AddressSpace::CPU, address) {
             match d {
                 Device::RAM(bytes) => {
                     return bytes[address as usize - r.0 as usize];
@@ -177,7 +167,7 @@ cycles: {}\
         return 0;
     }
     pub fn write(&mut self, address: u16, value: u8) {
-        if let Some((d, r)) = self.try_address(address) {
+        if let Some((d, r)) = self.try_address(AddressSpace::CPU, address) {
             match d {
                 Device::RAM(bytes) => {
                     bytes[address as usize - r.0 as usize] = value;
