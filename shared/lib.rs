@@ -1,3 +1,8 @@
+use strum::IntoEnumIterator;
+use Opcode::*;
+use AddressingMode::*;
+
+///
 /// Addressing modes
 #[allow(non_snake_case)]
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -29,6 +34,17 @@ pub enum AddressingMode {
     ZPG_Y,
     /// jam :(
     J,
+}
+
+/// The flags of the status register
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Flag {
+    N,
+    Z,
+    C,
+    I,
+    D,
+    V,
 }
 
 impl AddressingMode {
@@ -155,10 +171,6 @@ macro_rules! tabalize {
         [ $(Instruction { opcode: $x, addressing_mode: $y },)* ]
     };
 }
-
-use strum::IntoEnumIterator;
-use Opcode::*;
-use AddressingMode::*;
 
 // Zoom out to see properly :)
 pub const INSTRUCTIONS: [Instruction; 256] = tabalize! [

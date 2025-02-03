@@ -8,6 +8,7 @@ use shared::Opcode;
 use shared::AddressingMode;
 use shared::Instruction;
 use shared::INSTRUCTIONS;
+use shared::Flag;
 
 /// The state of the NES, registers, all devices mapped to memory-regions
 pub struct State {
@@ -109,6 +110,12 @@ impl State {
                     device: Device::ROM(chr),
                 },
             ],
+        }
+    }
+    
+    fn set_flag(&mut self, flag: Flag) {
+        match flag {
+            
         }
     }
 
