@@ -39,12 +39,23 @@ pub enum AddressingMode {
 /// The flags of the status register
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Flag {
-    N,
-    Z,
-    C,
-    I,
-    D,
-    V,
+    N,V,/*1,B,*/D,I,Z,C,
+}
+
+impl Flag {
+    pub fn bit_index(&self) -> u8 {
+        use Flag::*;
+        match self {
+            N => 7,
+            V => 6,
+            //1
+            //b
+            D => 3,
+            I => 2,
+            Z => 1,
+            C => 0,
+        }
+    }
 }
 
 impl AddressingMode {

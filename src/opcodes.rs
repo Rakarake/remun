@@ -1,3 +1,4 @@
+use shared::Flag;
 use shared::Opcode;
 use crate::State;
 use crate::MemoryTarget;
@@ -12,12 +13,12 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                 LDA => {
                     let val = state.read(addr);
                     state.a = val;
-                    state.sr = (val == 0) as u8;
+                    state.set_flag(Flag::Z, val == 0);
                 },
                 LDX => {
                     let val = state.read(addr);
                     state.x = val;
-                    state.sr = (val == 0) as u8;
+                    state.set_flag(Flag::Z, val == 0);
                 },
                 STA => {
                     state.write(addr, state.a);

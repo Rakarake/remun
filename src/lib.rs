@@ -113,9 +113,11 @@ impl State {
         }
     }
     
-    fn set_flag(&mut self, flag: Flag) {
-        match flag {
-            
+    pub fn set_flag(&mut self, flag: Flag, value: bool) {
+        if value {
+            self.sr |= 1 << flag.bit_index();
+        } else {
+            self.sr &= !(1 << flag.bit_index());
         }
     }
 
