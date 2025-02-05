@@ -37,13 +37,19 @@ pub enum AddressingMode {
 }
 
 pub mod flags {
+    /// Negative flag: is bit7 1?
     pub const N: u8 = 1<<7;
+    /// Overflow
     pub const V: u8 = 1<<6;
     //pub const 1
     //pub const b
+    /// Decimal mode (unused)
     pub const D: u8 = 1<<3;
+    /// Interrupt inhibit: disables maskable interrupts
     pub const I: u8 = 1<<2;
+    /// Zero: is the reuslt 0
     pub const Z: u8 = 1<<1;
+    /// Carry: does add operation carry over?
     pub const C: u8 = 1<<0;
 }
 

@@ -120,6 +120,10 @@ impl State {
         }
     }
 
+    pub fn get_flag(&self, flag: u8) -> bool {
+        (self.sr & flag) == flag
+    }
+
     pub fn run_one_instruction(&mut self) {
         let instr = self.read(self.pc);
         let Instruction { opcode, addressing_mode } = INSTRUCTIONS[instr as usize].clone();

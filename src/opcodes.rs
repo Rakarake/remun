@@ -9,16 +9,29 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
     use crate::MemoryTarget::*;
     match memory_target {
         Address(addr) => {
+            let old = state.read(addr);
             match opcode {
                 LDA => {
-                    let val = state.read(addr);
+                    let val = old;
                     state.a = val;
-                    state.set_flag(flags::Z, val == 0);
+                    new_value(state, val);
                 },
                 LDX => {
-                    let val = state.read(addr);
+                    let val = old;
                     state.x = val;
-                    state.set_flag(flags::Z, val == 0);
+                    new_value(state, val);
+                },
+                LDY => {
+                    let val = old;
+                    state.y = val;
+                    new_value(state, val);
+                },
+                ROL => {
+                    let (val, new_c) = old.overflowing_shl(1);
+                    let val = val | state.get_flag(flags::C) as u8;
+                    state.write(addr, val);
+                    state.set_flag(flags::C, new_c);
+                    new_value(state, val);
                 },
                 STA => {
                     state.write(addr, state.a);
@@ -37,5 +50,11 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
             }
         },
     }
+}
+
+/// Common flag operations for when updating some value
+fn new_value(state: &mut State, val: u8) {
+    state.set_flag(flags::Z, val == 0);
+    state.set_flag(flags::N, val & (1<<7) != 0);
 }
 
