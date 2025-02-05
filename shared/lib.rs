@@ -36,26 +36,15 @@ pub enum AddressingMode {
     J,
 }
 
-/// The flags of the status register
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Flag {
-    N,V,/*1,B,*/D,I,Z,C,
-}
-
-impl Flag {
-    pub fn bit_index(&self) -> u8 {
-        use Flag::*;
-        match self {
-            N => 7,
-            V => 6,
-            //1
-            //b
-            D => 3,
-            I => 2,
-            Z => 1,
-            C => 0,
-        }
-    }
+pub mod flags {
+    pub const N: u8 = 1<<7;
+    pub const V: u8 = 1<<6;
+    //pub const 1
+    //pub const b
+    pub const D: u8 = 1<<3;
+    pub const I: u8 = 1<<2;
+    pub const Z: u8 = 1<<1;
+    pub const C: u8 = 1<<0;
 }
 
 impl AddressingMode {

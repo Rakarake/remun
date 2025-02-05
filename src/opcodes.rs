@@ -1,7 +1,7 @@
-use shared::Flag;
 use shared::Opcode;
 use crate::State;
 use crate::MemoryTarget;
+use shared::flags;
 
 /// Expects pc to be at next instruction
 pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
@@ -13,12 +13,12 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                 LDA => {
                     let val = state.read(addr);
                     state.a = val;
-                    state.set_flag(Flag::Z, val == 0);
+                    state.set_flag(flags::Z, val == 0);
                 },
                 LDX => {
                     let val = state.read(addr);
                     state.x = val;
-                    state.set_flag(Flag::Z, val == 0);
+                    state.set_flag(flags::Z, val == 0);
                 },
                 STA => {
                     state.write(addr, state.a);
