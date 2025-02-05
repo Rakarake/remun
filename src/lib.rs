@@ -131,7 +131,7 @@ impl State {
         opcodes::run(opcode, self, memory_target);
     }
 
-    pub fn run_instructions(&mut self, n_instructions: u32) {
+    pub fn run_instructions(&mut self, n_instructions: u64) {
         for _ in 0..n_instructions {
             self.run_one_instruction();
         }
@@ -178,6 +178,7 @@ cycles: {}\
         return 0;
     }
     pub fn write(&mut self, address: u16, value: u8) {
+        println!("hello!, {:?}", address);
         if let Some((d, r)) = self.try_address(AddressSpace::CPU, address) {
             match d {
                 Device::RAM(bytes) => {
