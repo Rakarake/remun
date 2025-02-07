@@ -16,9 +16,9 @@ fn main() -> Result<(), AsmnesError> {
         INSTRL::INSTR(INSTR(LDA, IMM, U8(0x02))),
         INSTRL::INSTR(INSTR(STA, ABS, Label("VAR_A".to_string()))),
         INSTRL::INSTR(INSTR(LDX, ABS, Label("VAR_A".to_string()))),
-        INSTRL::DIR(Directive::RS(2)),
+        INSTRL::DIR(Directive::DS(2)),
         INSTRL::LABEL("VAR_A".to_string()),
-        INSTRL::DIR(Directive::RS(4)),
+        INSTRL::DIR(Directive::DS(4)),
         INSTRL::LABEL("VAR_B".to_string()),
     ])?;
     let mut state = State::new_nrom128(program.clone(), program);

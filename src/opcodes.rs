@@ -46,7 +46,7 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
         },
         Impl => {
             match opcode {
-                _ => unimplemented!()
+                _ => unimplemented!("nooo: {:?}", opcode)
             }
         },
     }

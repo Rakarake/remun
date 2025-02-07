@@ -45,7 +45,9 @@ struct INSTRD {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Directive {
     /// Reserve n bytes
-    RS(u16),
+    DS(u16),
+    DB(u8),
+    ORG(u16),
 }
 
 /// Assembles from INSTR
@@ -79,6 +81,12 @@ pub fn logical_assemble(program: &[INSTRL]) -> Result<AsmnesOutput, AsmnesError>
             INSTRL::DIR(d) => {
                 instrs.push(INSTRD { instr: INSTRL::DIR(d.clone()), line, address });
                 address += d.get_len();
+                match d {
+                    Directive::ORG(addr) => {
+                        address = *addr;
+                    },
+                    _ => {},
+                }
             },
         }
         line += 1;
@@ -138,16 +146,22 @@ impl INSTRD {
 impl Directive {
     fn get_bytes(&self) -> Vec<u8> {
         match self {
-            Directive::RS(n) => {
+            Directive::DB(n) => {
                 vec![0; *n as usize]
             },
+            _ => vec![],
         }
     }
     fn get_len(&self) -> u16 {
         match self {
-            Directive::RS(n) => {
+            Directive::DB(_) => {
+                1
+            },
+            Directive::DS(n) => {
+                // TODO weird, length but no bytes
                 *n
             },
+            _ => 0,
         }
     }
 }
