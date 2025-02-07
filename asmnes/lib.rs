@@ -14,6 +14,12 @@ use std::collections::HashMap;
 pub struct AsmnesError {
     line: usize,
     cause: String,
+    /// The assembler file
+    asmnes_file: &'static str,
+    /// The assembler line
+    asmnes_line: u32,
+    /// The assembler column
+    asmnes_column: u32,
 }
 
 impl fmt::Display for AsmnesError {
@@ -60,8 +66,20 @@ pub struct AsmnesOutput {
     pub labels: HashMap<String, u16>,
 }
 
-fn logical_assemble(program: &[Line]) -> Result<AsmnesOutput, AsmnesError> {
-    let mut banks: Vec<Vec<u8>> = Vec::new();
+/// Helper macro to return an error with context
+macro_rules! err {
+    ($msg:expr, $line_number:expr) => {
+        Err(AsmnesError {
+            line: $line_number,
+            cause: $msg.to_string(),
+            asmnes_file: file!(),
+            asmnes_line: line!(),
+            asmnes_column: column!()
+        })
+    };
+}
+
+fn logical_assemble(program: &[Line], banks: &mut Vec<Vec<u8>>) -> Result<AsmnesOutput, AsmnesError> {
     let mut current_bank: Option<usize> = None;
     let mut labels: HashMap<String, u16> = HashMap::new();
     let mut line_number: usize = 1;
@@ -73,7 +91,7 @@ fn logical_assemble(program: &[Line]) -> Result<AsmnesOutput, AsmnesError> {
             Line::Comment(_) => {},
             Line::Label(l) => {
                 if labels.insert(l.clone(), address).is_some() {
-                    return Err(AsmnesError { line: line_number, cause: "label already defined".to_string() });
+                    return err!("label already defined", line_number);
                 }
             },
             Line::Directive(d) => {
@@ -96,30 +114,39 @@ fn logical_assemble(program: &[Line]) -> Result<AsmnesOutput, AsmnesError> {
                     {
                         banks[bank][address as usize] = index as u8;
                         address += 1;
-                        let instr_byte_len = a.get_len();
-                        match operand {
-                            Operand::No => {},
+                        let byte_len = match operand {
+                            Operand::No => 1,
                             // TODO make sure that the operand type matches the addressing mode,
+                            // first fix a throw macro,
                             // will otherwise create really nasty bugs.
                             Operand::U8(b) => {
                                 banks[bank][address as usize] = *b;
                                 address += 1;
+                                2
                             },
                             Operand::U16(bs) => {
                                 let [lo, hi] = bs.to_le_bytes();
                                 banks[bank][address as usize] = lo;
                                 banks[bank][address as usize + 1] = hi;
                                 address += 2;
+                                3
                             },
                             Operand::Label(l) => {
                                 unresolved_labels.push((address, l.clone()));
                                 // skip over bytes in the meantime
                                 address += 2;
+                                3
                             },
+                        };
+                        if byte_len != a.get_len() {
+                            return err!(format!(
+                                "instruction expected argument of {} bytes but got {} bytes",
+                                a.get_len()-1, byte_len-1
+                            ), line_number);
                         }
                     }
                 } else {
-                    return Err(AsmnesError { line: line_number, cause: "must specify bank".to_string() });
+                    return err!("must specify bank", line_number);
                 }
             },
         }
