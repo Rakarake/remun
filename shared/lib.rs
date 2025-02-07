@@ -166,7 +166,7 @@ pub fn opcode_iter() -> OpcodeIter {
 
 // Instructions
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Instruction {
+pub struct Codepoint {
     pub opcode: Opcode,
     pub addressing_mode: AddressingMode,
     //cycles: u8,
@@ -174,12 +174,12 @@ pub struct Instruction {
 
 macro_rules! tabalize {
     ($($x:expr,$y:expr ); *;) => {
-        [ $(Instruction { opcode: $x, addressing_mode: $y },)* ]
+        [ $(Codepoint { opcode: $x, addressing_mode: $y },)* ]
     };
 }
 
 // Zoom out to see properly :)
-pub const INSTRUCTIONS: [Instruction; 256] = tabalize! [
+pub const CODEPOINTS: [Codepoint; 256] = tabalize! [
     BRK,IMPL ; ORA,X_IND ; JAM,J   ; SLO,X_IND ; NOP,ZPG   ; ORA,ZPG   ; ASL,ZPG   ; SLO,ZPG   ; PHP,IMPL ; ORA,IMM   ; ASL,A    ; ANC,IMM   ; NOP,ABS   ; ORA,ABS   ; ASL,ABS   ; SLO,ABS   ;
     BPL,REL  ; ORA,IND_Y ; JAM,J   ; SLO,IND_Y ; NOP,ZPG_X ; ORA,ZPG_X ; ASL,ZPG_X ; SLO,ZPG_X ; CLC,IMPL ; ORA,ABS_Y ; NOP,IMPL ; SLO,ABS_Y ; NOP,ABS_X ; ORA,ABS_X ; ASL,ABS_X ; SLO,ABS_X ;
     JSR,ABS  ; AND,X_IND ; JAM,J   ; RLA,X_IND ; BIT,ZPG   ; AND,ZPG   ; ROL,ZPG   ; RLA,ZPG   ; PLP,IMPL ; AND,IMM   ; ROL,A    ; ANC,IMM   ; BIT,ABS   ; AND,ABS   ; ROL,ABS   ; RLA,ABS   ;
