@@ -79,7 +79,7 @@ macro_rules! err {
 }
 
 /// Writes a byte and advances address.
-fn write_byte(banks: &mut Vec<Vec<u8>>, bank: Option<usize>, address: &mut u16, line_number: usize, byte: u8) -> Result<(), AsmnesError> {
+fn write_byte(banks: &mut [Vec<u8>], bank: Option<usize>, address: &mut u16, line_number: usize, byte: u8) -> Result<(), AsmnesError> {
     if let Some(b) = bank {
         // get the bank
         let bank: &mut Vec<u8> = banks.get_mut(b).ok_or(err!(format!("bank {b} does not exist"), line_number))?;
@@ -92,7 +92,7 @@ fn write_byte(banks: &mut Vec<Vec<u8>>, bank: Option<usize>, address: &mut u16, 
     }
 }
 
-fn logical_assemble(program: &[Line], mut banks: Vec<Vec<u8>>) -> Result<AsmnesOutput, AsmnesError> {
+pub fn logical_assemble(program: &[Line], mut banks: Vec<Vec<u8>>) -> Result<AsmnesOutput, AsmnesError> {
     struct UnresolvedLabel {
         bank: Option<usize>,
         address: u16,
