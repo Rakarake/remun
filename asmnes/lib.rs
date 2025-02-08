@@ -80,16 +80,15 @@ macro_rules! err {
 
 /// Writes a byte and advances address.
 fn write_byte(banks: &mut Vec<Vec<u8>>, bank: Option<usize>, address: &mut u16, line_number: usize, byte: u8) -> Result<(), AsmnesError> {
-    let b = get_bank(banks, bank, line_number)?;
-    *b.get_mut(*address as usize).ok_or(err!(format!("address {address} is out of range"), line_number))? = byte;
-    Ok(())
-}
-
-fn get_bank(banks: &mut Vec<Vec<u8>>, bank: Option<usize>, line_number: usize) -> Result<&mut Vec<u8>, AsmnesError> {
     if let Some(b) = bank {
-        banks.get_mut(b).ok_or(err!(format!("bank {b} does not exist"), line_number))
+        // get the bank
+        let bank: &mut Vec<u8> = banks.get_mut(b).ok_or(err!(format!("bank {b} does not exist"), line_number))?;
+        // write to bank
+        *bank.get_mut(*address as usize).ok_or(err!(format!("address {address} is outside of bank {b}'s range"), line_number))? = byte;
+        *address += 1;
+        Ok(())
     } else {
-        Err(err!("must specify bank before starting coding!", line_number))
+        Err(err!("must specify bank", line_number))
     }
 }
 
