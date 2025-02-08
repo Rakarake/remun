@@ -83,8 +83,9 @@ fn write_byte(banks: &mut [Vec<u8>], bank: Option<usize>, address: &mut u16, lin
     if let Some(b) = bank {
         // get the bank
         let bank: &mut Vec<u8> = banks.get_mut(b).ok_or(err!(format!("bank {b} does not exist"), line_number))?;
+        let bank_len = bank.len();
         // write to bank
-        *bank.get_mut(*address as usize).ok_or(err!(format!("address {address} is outside of bank {b}'s range"), line_number))? = byte;
+        *bank.get_mut(*address as usize).ok_or(err!(format!("address {address} is outside of bank {b}'s range (0 to {})", bank_len), line_number))? = byte;
         *address += 1;
         Ok(())
     } else {
@@ -120,10 +121,10 @@ pub fn logical_assemble(program: &[Line], mut banks: Vec<Vec<u8>>) -> Result<Asm
                 Line::Directive(d) => {
                     match d {
                         Directive::Bank(b) => {
-                            if *b >= banks.len() {
-                                // add missing banks
-                                banks.append(&mut vec![Vec::new(); b+1 - banks.len()]);
+                            if *b < banks.len() {
                                 current_bank = Some(*b);
+                            } else {
+                                return Err(err!(format!("trying to define bank {b} but only banks 0 to {} exist", banks.len()), line_number));
                             }
                         },
                         Directive::Org(a) => {

@@ -6,8 +6,8 @@ use std::usize;
 
 use shared::Opcode;
 use shared::AddressingMode;
-use shared::Instruction;
-use shared::INSTRUCTIONS;
+use shared::Codepoint;
+use shared::CODEPOINTS;
 
 /// The state of the NES, registers, all devices mapped to memory-regions
 pub struct State {
@@ -126,7 +126,7 @@ impl State {
 
     pub fn run_one_instruction(&mut self) {
         let instr = self.read(self.pc);
-        let Instruction { opcode, addressing_mode } = INSTRUCTIONS[instr as usize].clone();
+        let Codepoint { opcode, addressing_mode } = CODEPOINTS[instr as usize].clone();
         let memory_target = addressing_modes::run(addressing_mode, self);
         opcodes::run(opcode, self, memory_target);
     }
