@@ -14,7 +14,12 @@ mod test_general {
 
     /// Helper to run a simple program.
     fn run_program(n_instructions: u64, program: &[Line]) -> Result<State, AsmnesError> {
-        let banks = vec![ Bank { data: vec![0; 100], ranges: vec![Range(0,100)] } , Bank { data: vec![0; 100], ranges: vec![Range(0,100)] } ];
+        // NROM 128
+        // TODO fix chr data and move this
+        let banks = vec![
+            Bank { data: vec![0; 4000], ranges: vec![Range(0x8000,0xBFFF), Range(0xC000,0xFFFF)] },
+            Bank { data: vec![0; 0], ranges: vec![Range(0x0000,0x0000)] },
+        ];
         let AsmnesOutput { banks, labels: _ } = asmnes::logical_assemble(program, banks)?;
         let mut state = State::new_nrom128(banks[0].data.clone(), banks[1].data.clone());
         state.run_instructions(n_instructions);
@@ -23,9 +28,10 @@ mod test_general {
 
     #[test]
     fn test_transfer_registers_by_label() -> Result<(), AsmnesError> {
-        let state = run_program(3, &[
+        let state = run_program(6, &[
             // RAM
             Line::Directive(Directive::Org(0x0000)),
+            Line::Directive(Directive::Ds(1)),
             Line::Label("VAR_A".to_string()),
             Line::Directive(Directive::Ds(1)),
             Line::Label("VAR_B".to_string()),

@@ -160,6 +160,7 @@ cycles: {}\
         })
     }
     pub fn read(&mut self, address: u16) -> u8 {
+        println!("read: {:#06X}", address);
         if let Some((d, r)) = self.try_address(AddressSpace::CPU, address) {
             match d {
                 Device::RAM(bytes) => {
@@ -179,7 +180,7 @@ cycles: {}\
         return 0;
     }
     pub fn write(&mut self, address: u16, value: u8) {
-        println!("hello!, {:?}", address);
+        println!("write: {:#06X}", address);
         if let Some((d, r)) = self.try_address(AddressSpace::CPU, address) {
             match d {
                 Device::RAM(bytes) => {
