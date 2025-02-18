@@ -6,11 +6,12 @@ use shared::Opcode;
 use shared::AddressingMode;
 use shared::Codepoint;
 use shared::CODEPOINTS;
+use shared::Range;
 use std::fmt;
 use std::collections::HashMap;
 
 // TODO make a trhow! macro that prints the assembler line/column, and automates creating the error
-#[derive(Debug)]
+//#[derive(Debug)]
 pub struct AsmnesError {
     line: usize,
     cause: String,
@@ -24,7 +25,14 @@ pub struct AsmnesError {
 
 impl fmt::Display for AsmnesError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "error on line: {}, cause: {}", self.line, self.cause)
+        write!(f, "error on line: {},\ncause: {},\nasmnes - f: {}, l: {}, r: {}",
+            self.line, self.cause, self.asmnes_file, self.asmnes_line, self.asmnes_column)
+    }
+}
+
+impl fmt::Debug for AsmnesError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self)
     }
 }
 
@@ -61,7 +69,7 @@ pub enum Directive {
 /// The output of a logical assembly, should contain everything to create
 /// a INES file. Does not contain banks.
 pub struct AsmnesOutput {
-    pub banks: Vec<Vec<u8>>,
+    pub banks: Vec<Bank>,
     pub labels: HashMap<String, u16>,
 }
 
@@ -78,14 +86,28 @@ macro_rules! err {
     };
 }
 
+#[derive(Clone)]
+pub struct Bank {
+    pub data: Vec<u8>,
+    pub ranges: Vec<Range>,
+}
+
 /// Writes a byte and advances address.
-fn write_byte(banks: &mut [Vec<u8>], bank: Option<usize>, address: &mut u16, line_number: usize, byte: u8) -> Result<(), AsmnesError> {
+// TODO take bank into consideration: write to address - bank offset
+fn write_byte(banks: &mut [Bank], bank: Option<usize>, address: &mut u16, line_number: usize, byte: u8) -> Result<(), AsmnesError> {
     if let Some(b) = bank {
         // get the bank
-        let bank: &mut Vec<u8> = banks.get_mut(b).ok_or(err!(format!("bank {b} does not exist"), line_number))?;
-        let bank_len = bank.len();
+        let bank: &mut Bank = banks.get_mut(b).ok_or(err!(format!("bank {b} does not exist"), line_number))?;
+        let bank_len = bank.data.len();
         // write to bank
-        *bank.get_mut(*address as usize).ok_or(err!(format!("address {address} is outside of bank {b}'s range (0 to {})", bank_len), line_number))? = byte;
+        // find a bank range that has this address
+        if let Some(r) = bank.ranges.iter().find(|r| r.contains(*address)) {
+            *bank.data.get_mut((*address - r.0) as usize).ok_or(err!(format!("address {address} is outside of bank {b}'s range (0 to {})", bank_len), line_number))? = byte;
+        } else {
+            let mut err_string = format!("address {:#06X} does not exist in any of the ranges specified by bank {b}:", address).to_string();
+            bank.ranges.iter().for_each(|r| err_string.push_str(&format!("{}", r)));
+            return Err(err!(err_string, line_number));
+        }
         *address += 1;
         Ok(())
     } else {
@@ -93,7 +115,7 @@ fn write_byte(banks: &mut [Vec<u8>], bank: Option<usize>, address: &mut u16, lin
     }
 }
 
-pub fn logical_assemble(program: &[Line], mut banks: Vec<Vec<u8>>) -> Result<AsmnesOutput, AsmnesError> {
+pub fn logical_assemble(program: &[Line], mut banks: Vec<Bank>) -> Result<AsmnesOutput, AsmnesError> {
     struct UnresolvedLabel {
         bank: Option<usize>,
         address: u16,

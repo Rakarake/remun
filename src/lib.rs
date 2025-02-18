@@ -8,6 +8,7 @@ use shared::Opcode;
 use shared::AddressingMode;
 use shared::Codepoint;
 use shared::CODEPOINTS;
+use shared::Range;
 
 /// The state of the NES, registers, all devices mapped to memory-regions
 pub struct State {
@@ -197,14 +198,5 @@ pub enum MemoryTarget {
     Address(u16),
     Accumulator,
     Impl,
-}
-
-/// `0`: inclusive, `1`: exclusive
-#[derive(Clone, Copy)]
-pub struct Range(pub u16, pub u16);
-impl Range {
-    fn contains(&self, value: u16) -> bool {
-        value >= self.0 && value < self.1
-    }
 }
 

@@ -9,12 +9,14 @@ mod test_general {
     use asmnes::Line;
     use asmnes::Directive;
     use remun::State;
+    use asmnes::Bank;
+    use shared::Range;
 
     /// Helper to run a simple program.
     fn run_program(n_instructions: u64, program: &[Line]) -> Result<State, AsmnesError> {
-        let banks = vec![vec![0; 100], vec![100]];
+        let banks = vec![ Bank { data: vec![0; 100], ranges: vec![Range(0,100)] } , Bank { data: vec![0; 100], ranges: vec![Range(0,100)] } ];
         let AsmnesOutput { banks, labels: _ } = asmnes::logical_assemble(program, banks)?;
-        let mut state = State::new_nrom128(banks[0].clone(), banks[1].clone());
+        let mut state = State::new_nrom128(banks[0].data.clone(), banks[1].data.clone());
         state.run_instructions(n_instructions);
         Ok(state)
     }

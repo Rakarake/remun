@@ -1,6 +1,22 @@
 use strum::IntoEnumIterator;
 use Opcode::*;
 use AddressingMode::*;
+use std::fmt;
+
+/// `0`: inclusive, `1`: exclusive
+#[derive(Clone, Copy, Debug)]
+pub struct Range(pub u16, pub u16);
+impl Range {
+    pub fn contains(&self, value: u16) -> bool {
+        value >= self.0 && value < self.1
+    }
+}
+
+impl fmt::Display for Range {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:#06X}-{:#06X}", self.0, self.1)
+    }
+}
 
 ///
 /// Addressing modes
