@@ -8,10 +8,14 @@ use asmnes::Operand::*;
 use asmnes::Directive;
 use remun::State;
 
+mod visualizer;
+
 // TODO make asmnes program struct, takes in ines or (prg, debug, char)? (no, depends on mappers)
 // new_form_regions(regions, debug)
 
 fn main() -> Result<(), AsmnesError> {
+    pretty_env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+    visualizer::main().unwrap();
     //let AsmnesOutput { program, labels } = asmnes::logical_assemble(&[
     //    INSTRL::INSTR(INSTR(LDA, IMM, U8(0x02))),
     //    INSTRL::INSTR(INSTR(STA, ABS, Label("VAR_A".to_string()))),

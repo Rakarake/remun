@@ -6,6 +6,9 @@ edition = "2024"
 [dependencies]
 asmnes = { workspace = true }
 shared = { workspace = true }
+eframe = { version = "0.31" }
+egui_extras = { version = "0.31", features = ["default", "image"] }
+pretty_env_logger = "0.4"
 
 [workspace]
 members = [ "asmnes", "shared" ]
@@ -13,6 +16,7 @@ members = [ "asmnes", "shared" ]
 [workspace.dependencies]
 strum = "0.26"
 strum_macros = "0.26"
+log = "0.4"
 
 shared = { path = "shared" }
 asmnes = { path = "asmnes" }
