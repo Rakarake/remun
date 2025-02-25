@@ -64,6 +64,10 @@ pub enum Directive {
     Db(u8),
     Org(u16),
     Bank(usize),
+    /// nr of 16KB bank of PRG code
+    Inesprg(usize), 
+    /// nr of 8KB bank of CHR data
+    Ineschr(usize), 
 }
 
 /// The output of a logical assembly, should contain everything to create
@@ -89,40 +93,32 @@ macro_rules! err {
 #[derive(Clone)]
 pub struct Bank {
     pub data: Vec<u8>,
-    pub ranges: Vec<Range>,
 }
 
 /// Writes a byte and advances address.
-// TODO take bank into consideration: write to address - bank offset
 fn write_byte(banks: &mut [Bank], bank: Option<usize>, address: &mut u16, line_number: usize, byte: u8) -> Result<(), AsmnesError> {
     if let Some(b) = bank {
         // get the bank
         let bank: &mut Bank = banks.get_mut(b).ok_or(err!(format!("bank {b} does not exist"), line_number))?;
-        let bank_len = bank.data.len();
         // write to bank
-        // find a bank range that has this address
-        if let Some(r) = bank.ranges.iter().find(|r| r.contains(*address)) {
-            *bank.data.get_mut((*address - r.0) as usize).ok_or(err!(format!("address {address} is outside of bank {b}'s range (0 to {})", bank_len), line_number))? = byte;
-        } else {
-            let mut err_string = format!("address {:#06X} does not exist in any of the ranges specified by bank {b}:", address).to_string();
-            bank.ranges.iter().for_each(|r| err_string.push_str(&format!("{}", r)));
-            return Err(err!(err_string, line_number));
-        }
+        *bank.data.get_mut((*address & 0b0001111111111111) as usize).
+            ok_or(err!(format!("address {address} is outside of bank {b}'s range"), line_number))? = byte;
         *address += 1;
+        // TODO maybe add overflow check?
         Ok(())
     } else {
         Err(err!("must specify bank", line_number))
     }
 }
 
-pub fn logical_assemble(program: &[Line], mut banks: Vec<Bank>) -> Result<AsmnesOutput, AsmnesError> {
+pub fn logical_assemble(program: &[Line]) -> Result<AsmnesOutput, AsmnesError> {
     struct UnresolvedLabel {
         bank: Option<usize>,
         address: u16,
         label: String,
         line_number: usize,
     }
-
+    let mut banks: Vec<Bank> = Vec::new();
     let mut labels: HashMap<String, u16> = HashMap::new();
     let mut unresolved_labels: Vec<UnresolvedLabel> = Vec::new();
     
@@ -157,6 +153,21 @@ pub fn logical_assemble(program: &[Line], mut banks: Vec<Bank>) -> Result<Asmnes
                         },
                         Directive::Db(b) => {
                             write_byte(&mut banks, current_bank, &mut address, line_number, *b)?;
+                        },
+                        Directive::Inesprg(n) => {
+                            for _ in 0..*n {
+                                banks.push(Bank {
+                                    data: vec![0; 4000],
+                                });
+                            }
+                        },
+                        Directive::Ineschr(n) => {
+                            // TODO make a difference between chr and prg banks?
+                            for _ in 0..*n {
+                                banks.push(Bank {
+                                    data: vec![0; 4000],
+                                });
+                            }
                         },
                     }
                 },

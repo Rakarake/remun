@@ -17,10 +17,10 @@ mod test_general {
         // NROM 128
         // TODO fix chr data and move this
         let banks = vec![
-            Bank { data: vec![0; 4000], ranges: vec![Range(0x8000,0xBFFF), Range(0xC000,0xFFFF)] },
-            Bank { data: vec![0; 0], ranges: vec![Range(0x0000,0x0000)] },
+            Bank { data: vec![0; 4000] },
+            Bank { data: vec![0; 0] },
         ];
-        let AsmnesOutput { banks, labels: _ } = asmnes::logical_assemble(program, banks)?;
+        let AsmnesOutput { banks, labels: _ } = asmnes::logical_assemble(program)?;
         let mut state = State::new_nrom128(banks[0].data.clone(), banks[1].data.clone());
         state.run_instructions(n_instructions);
         Ok(state)
@@ -29,6 +29,9 @@ mod test_general {
     #[test]
     fn test_transfer_registers_by_label() -> Result<(), AsmnesError> {
         let state = run_program(6, &[
+            // Header
+            Line::Directive(Directive::Inesprg(1)),
+            Line::Directive(Directive::Ineschr(1)),
             // RAM
             Line::Directive(Directive::Org(0x0000)),
             Line::Directive(Directive::Ds(1)),
