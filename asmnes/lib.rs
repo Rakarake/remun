@@ -111,6 +111,104 @@ fn write_byte(banks: &mut [Bank], bank: Option<usize>, address: &mut u16, line_n
     }
 }
 
+#[derive(Debug)]
+pub struct DToken { token: Token, line: usize }
+#[derive(Debug)]
+pub enum Token {
+    Ident(String),
+    Num(u16),
+    ParenOpen,
+    ParenClose,
+    Comma,
+    Hash,
+}
+
+#[derive(PartialEq, Clone, Copy)]
+enum LexState {
+    Awaiting,
+    ReadingBin,
+    ReadingHex,
+    ReadingDec,
+    ReadingIdent,
+}
+
+fn get_radix(ls: LexState, line_number: usize) -> Result<u32, AsmnesError> {
+    match ls {
+        LexState::ReadingHex => Ok(16),
+        LexState::ReadingBin => Ok(2),
+        LexState::ReadingDec => Ok(10),
+        _ => Err(err!("internal parsing error when getting radix", line_number)),
+    }
+}
+
+pub fn lex(program: &str) -> Result<Vec<Vec<DToken>>, AsmnesError> {
+    let mut lines: Vec<Vec<DToken>> = Vec::new();
+    let mut line: Vec<DToken> = Vec::new();
+    let mut line_number: usize = 1;
+    let mut state: LexState = LexState::Awaiting;
+    let mut itr = program.chars().peekable();
+    let mut acc: String = String::new();
+    while let Some(c) = itr.next() {
+        match c {
+            '\n' => {
+                lines.push(line);
+                line = Vec::new();
+                line_number += 1;
+            },
+            '(' => {
+                line.push(DToken { token: Token::ParenOpen, line: line_number });
+                state = LexState::Awaiting;
+            },
+            ')' => {
+                line.push(DToken { token: Token::ParenClose, line: line_number });
+                state = LexState::Awaiting;
+            },
+            ',' => {
+                line.push(DToken { token: Token::Comma, line: line_number });
+                state = LexState::Awaiting;
+            },
+            '#' => {
+                line.push(DToken { token: Token::Hash, line: line_number });
+                state = LexState::Awaiting;
+            },
+            '$' => state = LexState::ReadingHex,
+            '%' => state = LexState::ReadingBin,
+            _ => {
+                match state {
+                    LexState::ReadingIdent => {
+                        acc.push(c);
+                    },
+                    LexState::Awaiting => {
+                        if c.is_numeric() {
+                            acc.push(c);
+                            state = LexState::ReadingDec;
+                        } else if c.is_alphabetic() {
+                            acc.push(c);
+                            state = LexState::ReadingIdent;
+                        }
+                    },
+                    LexState::ReadingHex | LexState::ReadingBin | LexState::ReadingDec => {
+                        if c.is_numeric() {
+                            acc.push(c);
+                            if let Some(next_c) = itr.peek() && !next_c.is_numeric() {
+                                // TODO fix unwrap
+                                line.push(DToken {
+                                    token: Token::Num(u16::from_str_radix(&acc, get_radix(state, line_number)?).unwrap()),
+                                    line: line_number,
+                                });
+                            }
+                        } else {
+                            // err
+                        }
+                    },
+                }
+            },
+        }
+    }
+    lines.push(line);
+    Ok(lines)
+}
+
 pub fn logical_assemble(program: &[Line]) -> Result<AsmnesOutput, AsmnesError> {
     struct UnresolvedLabel {
         bank: Option<usize>,
