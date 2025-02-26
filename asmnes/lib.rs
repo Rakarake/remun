@@ -141,44 +141,69 @@ fn get_radix(ls: LexState, line_number: usize) -> Result<u32, AsmnesError> {
     }
 }
 
+// A delimiter ends the previous work
+fn delimiter(state: &mut LexState, line_number: usize, line: &mut Vec<DToken>, acc: &mut String) -> Result<(), AsmnesError> {
+    match state {
+        LexState::ReadingIdent => {
+            line.push(DToken { token: Token::Ident(acc.clone()), line: line_number });
+        },
+        LexState::ReadingHex | LexState::ReadingBin | LexState::ReadingDec => {
+            line.push(DToken {
+                token: Token::Num(u16::from_str_radix(acc, get_radix(*state, line_number)?)
+                           .map_err(|e| err!(format!("number parse error: {}", e), line_number))?),
+                line: line_number,
+            });
+        },
+        LexState::Awaiting => {},
+    }
+    acc.clear();
+    *state = LexState::Awaiting;
+    Ok(())
+}
+
 pub fn lex(program: &str) -> Result<Vec<Vec<DToken>>, AsmnesError> {
     let mut lines: Vec<Vec<DToken>> = Vec::new();
     let mut line: Vec<DToken> = Vec::new();
     let mut line_number: usize = 1;
     let mut state: LexState = LexState::Awaiting;
-    let mut itr = program.chars().peekable();
     let mut acc: String = String::new();
-    while let Some(c) = itr.next() {
+    for c in program.chars() {
         match c {
             '\n' => {
+                delimiter(&mut state, line_number, &mut line, &mut acc)?;
                 lines.push(line);
                 line = Vec::new();
                 line_number += 1;
             },
             '(' => {
+                delimiter(&mut state, line_number, &mut line, &mut acc)?;
                 line.push(DToken { token: Token::ParenOpen, line: line_number });
                 state = LexState::Awaiting;
             },
             ')' => {
+                delimiter(&mut state, line_number, &mut line, &mut acc)?;
                 line.push(DToken { token: Token::ParenClose, line: line_number });
                 state = LexState::Awaiting;
             },
             ',' => {
+                delimiter(&mut state, line_number, &mut line, &mut acc)?;
                 line.push(DToken { token: Token::Comma, line: line_number });
                 state = LexState::Awaiting;
             },
             '#' => {
+                delimiter(&mut state, line_number, &mut line, &mut acc)?;
                 line.push(DToken { token: Token::Hash, line: line_number });
                 state = LexState::Awaiting;
+            },
+            ' ' => {
+                delimiter(&mut state, line_number, &mut line, &mut acc)?;
             },
             '$' => state = LexState::ReadingHex,
             '%' => state = LexState::ReadingBin,
             _ => {
                 match state {
-                    LexState::ReadingIdent => {
-                        acc.push(c);
-                    },
                     LexState::Awaiting => {
+                        // Start reading ident or decimal number
                         if c.is_numeric() {
                             acc.push(c);
                             state = LexState::ReadingDec;
@@ -187,20 +212,7 @@ pub fn lex(program: &str) -> Result<Vec<Vec<DToken>>, AsmnesError> {
                             state = LexState::ReadingIdent;
                         }
                     },
-                    LexState::ReadingHex | LexState::ReadingBin | LexState::ReadingDec => {
-                        if c.is_numeric() {
-                            acc.push(c);
-                            if let Some(next_c) = itr.peek() && !next_c.is_numeric() {
-                                // TODO fix unwrap
-                                line.push(DToken {
-                                    token: Token::Num(u16::from_str_radix(&acc, get_radix(state, line_number)?).unwrap()),
-                                    line: line_number,
-                                });
-                            }
-                        } else {
-                            // err
-                        }
-                    },
+                    _ => acc.push(c),
                 }
             },
         }
