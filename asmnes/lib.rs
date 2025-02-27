@@ -121,6 +121,7 @@ pub enum Token {
     ParenClose,
     Comma,
     Hash,
+    Newline,
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -142,16 +143,16 @@ fn get_radix(ls: LexState, line_number: usize) -> Result<u32, AsmnesError> {
 }
 
 // A delimiter ends the previous work
-fn delimiter(state: &mut LexState, line_number: usize, line: &mut Vec<DToken>, acc: &mut String) -> Result<(), AsmnesError> {
+fn delimiter(state: &mut LexState, line: usize, output: &mut Vec<DToken>, acc: &mut String) -> Result<(), AsmnesError> {
     match state {
         LexState::ReadingIdent => {
-            line.push(DToken { token: Token::Ident(acc.clone()), line: line_number });
+            output.push(DToken { token: Token::Ident(acc.clone()), line });
         },
         LexState::ReadingHex | LexState::ReadingBin | LexState::ReadingDec => {
-            line.push(DToken {
-                token: Token::Num(u16::from_str_radix(acc, get_radix(*state, line_number)?)
-                           .map_err(|e| err!(format!("number parse error: {}", e), line_number))?),
-                line: line_number,
+            output.push(DToken {
+                token: Token::Num(u16::from_str_radix(acc, get_radix(*state, line)?)
+                           .map_err(|e| err!(format!("number parse error: {}", e), line))?),
+                line,
             });
         },
         LexState::Awaiting => {},
@@ -161,42 +162,39 @@ fn delimiter(state: &mut LexState, line_number: usize, line: &mut Vec<DToken>, a
     Ok(())
 }
 
-pub fn lex(program: &str) -> Result<Vec<Vec<DToken>>, AsmnesError> {
-    let mut lines: Vec<Vec<DToken>> = Vec::new();
-    let mut line: Vec<DToken> = Vec::new();
-    let mut line_number: usize = 1;
+pub fn lex(program: &str) -> Result<Vec<DToken>, AsmnesError> {
+    let mut output: Vec<DToken> = Vec::new();
+    let mut line: usize = 1;
     let mut state: LexState = LexState::Awaiting;
     let mut acc: String = String::new();
     for c in program.chars() {
         match c {
             '\n' => {
-                delimiter(&mut state, line_number, &mut line, &mut acc)?;
-                lines.push(line);
-                line = Vec::new();
-                line_number += 1;
+                delimiter(&mut state, line, &mut output, &mut acc)?;
+                output.push(DToken { token: Token::Newline, line });
+                line += 1;
             },
             '(' => {
-                delimiter(&mut state, line_number, &mut line, &mut acc)?;
-                line.push(DToken { token: Token::ParenOpen, line: line_number });
-                state = LexState::Awaiting;
+                delimiter(&mut state, line, &mut output, &mut acc)?;
+                output.push(DToken { token: Token::ParenOpen, line });
             },
             ')' => {
-                delimiter(&mut state, line_number, &mut line, &mut acc)?;
-                line.push(DToken { token: Token::ParenClose, line: line_number });
-                state = LexState::Awaiting;
+                delimiter(&mut state, line, &mut output, &mut acc)?;
+                output.push(DToken { token: Token::ParenClose, line });
             },
             ',' => {
-                delimiter(&mut state, line_number, &mut line, &mut acc)?;
-                line.push(DToken { token: Token::Comma, line: line_number });
-                state = LexState::Awaiting;
+                delimiter(&mut state, line, &mut output, &mut acc)?;
+                output.push(DToken { token: Token::Comma, line });
             },
             '#' => {
-                delimiter(&mut state, line_number, &mut line, &mut acc)?;
-                line.push(DToken { token: Token::Hash, line: line_number });
-                state = LexState::Awaiting;
+                delimiter(&mut state, line, &mut output, &mut acc)?;
+                output.push(DToken { token: Token::Hash, line });
             },
             ' ' => {
-                delimiter(&mut state, line_number, &mut line, &mut acc)?;
+                delimiter(&mut state, line, &mut output, &mut acc)?;
+            },
+            '\t' => {
+                delimiter(&mut state, line, &mut output, &mut acc)?;
             },
             '$' => state = LexState::ReadingHex,
             '%' => state = LexState::ReadingBin,
@@ -217,8 +215,11 @@ pub fn lex(program: &str) -> Result<Vec<Vec<DToken>>, AsmnesError> {
             },
         }
     }
-    lines.push(line);
-    Ok(lines)
+    Ok(output)
+}
+
+fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
+    Ok(vec![])
 }
 
 pub fn logical_assemble(program: &[Line]) -> Result<AsmnesOutput, AsmnesError> {
