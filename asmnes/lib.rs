@@ -116,11 +116,13 @@ pub struct DToken { token: Token, line: usize }
 #[derive(Debug)]
 pub enum Token {
     Ident(String),
+    Directive(String),
     Num(u16),
     ParenOpen,
     ParenClose,
     Comma,
     Hash,
+    Colon,
     Newline,
 }
 
@@ -131,6 +133,7 @@ enum LexState {
     ReadingHex,
     ReadingDec,
     ReadingIdent,
+    ReadingDirective,
 }
 
 fn get_radix(ls: LexState, line_number: usize) -> Result<u32, AsmnesError> {
@@ -155,6 +158,9 @@ fn delimiter(state: &mut LexState, line: usize, output: &mut Vec<DToken>, acc: &
                 line,
             });
         },
+        LexState::ReadingDirective => {
+            output.push(DToken { token: Token::Directive(acc.clone()), line });
+        },
         LexState::Awaiting => {},
     }
     acc.clear();
@@ -174,6 +180,10 @@ pub fn lex(program: &str) -> Result<Vec<DToken>, AsmnesError> {
                 output.push(DToken { token: Token::Newline, line });
                 line += 1;
             },
+            '.' => {
+                delimiter(&mut state, line, &mut output, &mut acc)?;
+                state = LexState::ReadingDirective;
+            },
             '(' => {
                 delimiter(&mut state, line, &mut output, &mut acc)?;
                 output.push(DToken { token: Token::ParenOpen, line });
@@ -189,6 +199,10 @@ pub fn lex(program: &str) -> Result<Vec<DToken>, AsmnesError> {
             '#' => {
                 delimiter(&mut state, line, &mut output, &mut acc)?;
                 output.push(DToken { token: Token::Hash, line });
+            },
+            ':' => {
+                delimiter(&mut state, line, &mut output, &mut acc)?;
+                output.push(DToken { token: Token::Colon, line });
             },
             ' ' => {
                 delimiter(&mut state, line, &mut output, &mut acc)?;
@@ -208,6 +222,8 @@ pub fn lex(program: &str) -> Result<Vec<DToken>, AsmnesError> {
                         } else if c.is_alphabetic() {
                             acc.push(c);
                             state = LexState::ReadingIdent;
+                        } else {
+                            return Err(err!("parse error", line))
                         }
                     },
                     _ => acc.push(c),
@@ -219,6 +235,24 @@ pub fn lex(program: &str) -> Result<Vec<DToken>, AsmnesError> {
 }
 
 fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
+    let mut itr = program.iter();
+    while let Some(DToken { token, line }) = itr.next() {
+        match token {
+            Token::Directive(d) => {
+                // TODO need some table of directive names to check for
+                // might want to change to all-capital letters, then check both
+                // capital/noncapital versions, should be done for opcodes as well
+            },
+            Token::Ident(i) => {
+                // label or opcode?
+            },
+            Token::Newline => {
+            },
+            _ => {
+                return Err(err!("parse error", *line));
+            },
+        }
+    }
     Ok(vec![])
 }
 
