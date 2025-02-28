@@ -1,7 +1,7 @@
 use strum::IntoEnumIterator;
 use Opcode::*;
 use AddressingMode::*;
-use std::fmt;
+use std::{fmt, str::FromStr};
 
 /// `0`: inclusive, `1`: exclusive
 #[derive(Clone, Copy, Debug)]
@@ -88,6 +88,15 @@ impl AddressingMode {
             AddressingMode::IND_Y => 2,
             AddressingMode::J => unimplemented!("illegal instruction!"),
         }
+    }
+}
+
+impl FromStr for Opcode {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        CODEPOINTS.iter().find_map(|Codepoint { opcode, addressing_mode: _ }|
+            if format!("{}", opcode) == s {Some(opcode)} else {None})
+        .cloned().ok_or(())
     }
 }
 

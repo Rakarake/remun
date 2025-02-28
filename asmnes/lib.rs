@@ -124,6 +124,8 @@ pub enum Token {
     Hash,
     Colon,
     Newline,
+    X,
+    Y,
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -150,7 +152,14 @@ fn get_radix(ls: LexState, line_number: usize) -> Result<u32, AsmnesError> {
 fn delimiter(state: &mut LexState, line: usize, output: &mut Vec<DToken>, acc: &mut String) -> Result<(), AsmnesError> {
     match state {
         LexState::ReadingIdent => {
-            output.push(DToken { token: Token::Ident(acc.clone()), line });
+            // X & Y tokens take precedence
+            if acc == "X" {
+                output.push(DToken { token: Token::X, line });
+            } else if acc == "Y" {
+                output.push(DToken { token: Token::Y, line });
+            } else {
+                output.push(DToken { token: Token::Ident(acc.clone()), line });
+            }
             *state = LexState::Awaiting;
         },
         LexState::ReadingHex | LexState::ReadingBin | LexState::ReadingDec => {
@@ -244,7 +253,29 @@ pub fn lex(program: &str) -> Result<Vec<DToken>, AsmnesError> {
     Ok(output)
 }
 
+fn parse_opcode(i: &str, line: usize) -> Result<Opcode, AsmnesError> {
+    i.parse::<Opcode>().map_err(|_| err!("expected opcode", line))
+}
+
+fn parse_u8(i: Option<&DToken>, line: usize) -> Result<u8, AsmnesError> {
+    if let Some(DToken { token, line }) = i {
+        match token {
+            Token::Num(n) => {
+                if *n < 256 {
+                    Ok(*n as u8)
+                } else {
+                    Err(err!("number is too big! must fit in u8", *line))
+                }
+            }
+            _ => Err(err!("expected number", *line)),
+        }
+    } else {
+        Err(err!("unexpected end of file", line))
+    }
+}
+
 fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
+    let mut output: Vec<Line> = Vec::new();
     let mut itr = program.iter();
     while let Some(DToken { token, line }) = itr.next() {
         match token {
@@ -254,13 +285,36 @@ fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
                 // capital/noncapital versions, should be done for opcodes as well
             },
             Token::Ident(i) => {
-                // label or opcode?
+                if let Some(DToken { token, line }) = itr.next() {
+                    match token {
+                        // Label
+                        Token::Colon => {
+                            output.push(Line::Label(i.clone()));
+                        },
+                        // Immediate mode
+                        Token::Hash => {
+                            let o = parse_opcode(i, *line)?;
+                            let n = parse_u8(itr.next(), *line)?;
+                            output.push(Line::Instruction(Instruction(o, AddressingMode::IMM, Operand::U8(n))));
+                            
+                        }
+                        // Opcode probably, add more cases for addr-modes
+                        _ => {
+                        },
+                    }
+                } else {
+                    // must be implied
+                    //return Err(err!("unexpected end of line", *line));
+                }
             },
             Token::Newline => {
             },
             _ => {
                 return Err(err!("parse error", *line));
             },
+        }
+        if let Some(DToken { token: Token::Newline, line: _ }) = itr.next() {} else {
+            return Err(err!("expected newline", *line));
         }
     }
     Ok(vec![])
