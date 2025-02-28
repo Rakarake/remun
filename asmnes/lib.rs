@@ -134,6 +134,7 @@ enum LexState {
     ReadingDec,
     ReadingIdent,
     ReadingDirective,
+    ReadingComment,
 }
 
 fn get_radix(ls: LexState, line_number: usize) -> Result<u32, AsmnesError> {
@@ -150,6 +151,7 @@ fn delimiter(state: &mut LexState, line: usize, output: &mut Vec<DToken>, acc: &
     match state {
         LexState::ReadingIdent => {
             output.push(DToken { token: Token::Ident(acc.clone()), line });
+            *state = LexState::Awaiting;
         },
         LexState::ReadingHex | LexState::ReadingBin | LexState::ReadingDec => {
             output.push(DToken {
@@ -157,14 +159,18 @@ fn delimiter(state: &mut LexState, line: usize, output: &mut Vec<DToken>, acc: &
                            .map_err(|e| err!(format!("number parse error: {}", e), line))?),
                 line,
             });
+            *state = LexState::Awaiting;
         },
         LexState::ReadingDirective => {
             output.push(DToken { token: Token::Directive(acc.clone()), line });
+            *state = LexState::Awaiting;
         },
-        LexState::Awaiting => {},
+        LexState::Awaiting  => {
+            *state = LexState::Awaiting;
+        },
+        LexState::ReadingComment => {},
     }
     acc.clear();
-    *state = LexState::Awaiting;
     Ok(())
 }
 
@@ -179,6 +185,8 @@ pub fn lex(program: &str) -> Result<Vec<DToken>, AsmnesError> {
                 delimiter(&mut state, line, &mut output, &mut acc)?;
                 output.push(DToken { token: Token::Newline, line });
                 line += 1;
+                // After commnet, start reading again
+                state = LexState::Awaiting;
             },
             '.' => {
                 delimiter(&mut state, line, &mut output, &mut acc)?;
@@ -210,6 +218,7 @@ pub fn lex(program: &str) -> Result<Vec<DToken>, AsmnesError> {
             '\t' => {
                 delimiter(&mut state, line, &mut output, &mut acc)?;
             },
+            ';' => state = LexState::ReadingComment,
             '$' => state = LexState::ReadingHex,
             '%' => state = LexState::ReadingBin,
             _ => {
@@ -226,6 +235,7 @@ pub fn lex(program: &str) -> Result<Vec<DToken>, AsmnesError> {
                             return Err(err!("parse error", line))
                         }
                     },
+                    LexState::ReadingComment => { },
                     _ => acc.push(c),
                 }
             },
