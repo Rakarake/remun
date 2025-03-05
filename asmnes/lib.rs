@@ -7,6 +7,7 @@ use shared::AddressingMode;
 use shared::Codepoint;
 use shared::CODEPOINTS;
 use shared::Range;
+use shared::opcode_addressing_modes;
 use std::fmt;
 use std::collections::HashMap;
 
@@ -111,9 +112,9 @@ fn write_byte(banks: &mut [Bank], bank: Option<usize>, address: &mut u16, line_n
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DToken { token: Token, line: usize }
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Ident(String),
     Directive(String),
@@ -126,6 +127,7 @@ pub enum Token {
     Newline,
     X,
     Y,
+    A,
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -157,6 +159,8 @@ fn delimiter(state: &mut LexState, line: usize, output: &mut Vec<DToken>, acc: &
                 output.push(DToken { token: Token::X, line });
             } else if acc == "Y" {
                 output.push(DToken { token: Token::Y, line });
+            } else if acc == "A" {
+                output.push(DToken { token: Token::A, line });
             } else {
                 output.push(DToken { token: Token::Ident(acc.clone()), line });
             }
@@ -257,24 +261,26 @@ fn parse_opcode(i: &str, line: usize) -> Result<Opcode, AsmnesError> {
     i.parse::<Opcode>().map_err(|_| err!("expected opcode", line))
 }
 
-fn parse_u8(i: Option<&DToken>, line: usize) -> Result<u8, AsmnesError> {
-    if let Some(DToken { token, line }) = i {
-        match token {
-            Token::Num(n) => {
-                if *n < 256 {
-                    Ok(*n as u8)
-                } else {
-                    Err(err!("number is too big! must fit in u8", *line))
-                }
-            }
-            _ => Err(err!("expected number", *line)),
+fn parse_u8(n: u16, line: usize) -> Result<u8, AsmnesError> {
+    u8::try_from(n).map_err(|_| err!("expected u8", line))
+}
+
+fn parse_num(dtoken: &DToken) -> Result<u16, AsmnesError> {
+    let DToken { token, line } = dtoken;
+    match token {
+        Token::Num(n) => {
+            Ok(*n)
         }
-    } else {
-        Err(err!("unexpected end of file", line))
+        _ => Err(err!("expected number", *line)),
     }
 }
 
-fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
+// Helper for when you expect a new symbol
+fn parse_next(i: Option<&DToken>, line: usize) -> Result<&DToken, AsmnesError> {
+    i.ok_or(err!("unexpected end of line", line))
+}
+
+pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
     let mut output: Vec<Line> = Vec::new();
     let mut itr = program.iter();
     while let Some(DToken { token, line }) = itr.next() {
@@ -294,12 +300,33 @@ fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
                         // Immediate mode
                         Token::Hash => {
                             let o = parse_opcode(i, *line)?;
-                            let n = parse_u8(itr.next(), *line)?;
+                            let t = parse_next(itr.next(), *line)?;
+                            let n = parse_num(t)?;
+                            let n = parse_u8(n, *line)?;
                             output.push(Line::Instruction(Instruction(o, AddressingMode::IMM, Operand::U8(n))));
-                            
                         }
-                        // Opcode probably, add more cases for addr-modes
+                        Token::Num(n) => {
+                            // Absolute + X/Y indexed, relative or Zero-page + X/Y indexed
+                            // TODO need to know the available addressing modes for an opcode, to
+                            // see if it can use zero-page, or if it's using relative
+                            let o = parse_opcode(i, *line)?;
+                            // Relative addr-mode takes precedence
+                            if opcode_addressing_modes(&o).iter().any(|a| *a == AddressingMode::REL) {
+                                let n = parse_u8(*n, *line)?;
+                                output.push(Line::Instruction(Instruction(o, AddressingMode::REL, Operand::U8(n))));
+                            } else {
+                            }
+                        },
+                        Token::ParenOpen => {
+                            // Any indirect addr-mode
+                        },
+                        Token::A => {
+                            // Accumulator addr-mode
+                            let o = parse_opcode(i, *line)?;
+                            output.push(Line::Instruction(Instruction(o, AddressingMode::A, Operand::No)));
+                        },
                         _ => {
+                            return Err(err!("wrong token after ident", *line))
                         },
                     }
                 } else {
@@ -313,11 +340,16 @@ fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
                 return Err(err!("parse error", *line));
             },
         }
-        if let Some(DToken { token: Token::Newline, line: _ }) = itr.next() {} else {
-            return Err(err!("expected newline", *line));
+        if *token != Token::Newline {
+            // expecting newline after line contents
+            if let Some(DToken { token, line }) = itr.next() {
+                if *token != Token::Newline {
+                    return Err(err!("expected newline", *line));
+                }
+            }
         }
     }
-    Ok(vec![])
+    Ok(output)
 }
 
 pub fn logical_assemble(program: &[Line]) -> Result<AsmnesOutput, AsmnesError> {

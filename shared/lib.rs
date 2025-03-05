@@ -189,6 +189,16 @@ pub fn opcode_iter() -> OpcodeIter {
     Opcode::iter()
 }
 
+pub fn opcode_addressing_modes(o: &Opcode) -> Vec<AddressingMode> {
+    CODEPOINTS.iter().filter_map(|Codepoint { opcode, addressing_mode }| {
+        if *o == *opcode {
+            Some(addressing_mode)
+        } else {
+            None
+        }
+    }).cloned().collect()
+}
+
 // Instructions
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Codepoint {
