@@ -310,11 +310,17 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
                             // TODO need to know the available addressing modes for an opcode, to
                             // see if it can use zero-page, or if it's using relative
                             let o = parse_opcode(i, *line)?;
-                            // Relative addr-mode takes precedence
-                            if opcode_addressing_modes(&o).iter().any(|a| *a == AddressingMode::REL) {
+                            use AddressingMode::*;
+                            if opcode_addressing_modes(&o).iter().any(|a| *a == REL) {
+                                // Relative addr-mode takes precedence
                                 let n = parse_u8(*n, *line)?;
                                 output.push(Line::Instruction(Instruction(o, AddressingMode::REL, Operand::U8(n))));
-                            } else {
+                            } else if opcode_addressing_modes(&o).iter().any(|a| *a == ZPG || *a == ZPG_X || *a == ZPG_Y) {
+                                // Zero page
+                                //let t = parse_next(itr.next(), *line)?;
+                                if let Some(DToken { token, line }) = itr.next() {
+                                } else {
+                                }
                             }
                         },
                         Token::ParenOpen => {
