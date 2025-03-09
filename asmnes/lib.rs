@@ -282,7 +282,7 @@ fn parse_next(i: Option<&DToken>, line: usize) -> Result<&DToken, AsmnesError> {
 
 pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
     let mut output: Vec<Line> = Vec::new();
-    let mut itr = program.iter();
+    let mut itr = program.iter().peekable();
     while let Some(DToken { token, line }) = itr.next() {
         match token {
             Token::Directive(d) => {
@@ -317,10 +317,33 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
                                 output.push(Line::Instruction(Instruction(o, AddressingMode::REL, Operand::U8(n))));
                             } else if opcode_addressing_modes(&o).iter().any(|a| *a == ZPG || *a == ZPG_X || *a == ZPG_Y) {
                                 // Zero page
+                                let operand = parse_u8(*n, *line)?;
                                 //let t = parse_next(itr.next(), *line)?;
                                 if let Some(DToken { token, line }) = itr.next() {
+                                    match token {
+                                        Token::Newline => {
+                                            // non-x/y addressed
+                                            output.push(Line::Instruction(Instruction(o, AddressingMode::ZPG, Operand::U8(operand))));
+                                            continue;
+                                        },
+                                        Token::Comma => {
+                                            let DToken { token, line } = parse_next(itr.next(), *line)?;
+                                            output.push(Line::Instruction(Instruction(o, 
+                                                    match token {
+                                                        Token::X => AddressingMode::ZPG_X,
+                                                        Token::Y => AddressingMode::ZPG_Y,
+                                                        _ => return Err(err!("expected either X or Y", *line))
+                                                    },
+                                            Operand::U8(operand))));
+                                        },
+                                        _ => return Err(err!("expected comma", *line)),
+                                    }
                                 } else {
+                                    // non-x/y addressed
+                                    output.push(Line::Instruction(Instruction(o, AddressingMode::ZPG, Operand::U8(operand))));
                                 }
+                            } else if opcode_addressing_modes(&o).iter().any(|a| *a == ABS || *a == ABS_X || *a == ABS_Y) {
+
                             }
                         },
                         Token::ParenOpen => {
