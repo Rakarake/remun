@@ -307,6 +307,39 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
                 // TODO need some table of directive names to check for
                 // might want to change to all-capital letters, then check both
                 // capital/noncapital versions, should be done for opcodes as well
+                match d.as_str() {
+                    "org" => {
+                        let t = parse_next(itr.next(), *line)?;
+                        let n = parse_num(t)?;
+                        output.push(Line::Directive(Directive::Org(n)));
+                    },
+                    "bank" => {
+                        let t = parse_next(itr.next(), *line)?;
+                        let n = parse_num(t)?;
+                        output.push(Line::Directive(Directive::Bank(n as usize)));
+                    },
+                    "inesprg" => {
+                        let t = parse_next(itr.next(), *line)?;
+                        let n = parse_num(t)?;
+                        output.push(Line::Directive(Directive::Inesprg(n as usize)));
+                    },
+                    "ineschr" => {
+                        let t = parse_next(itr.next(), *line)?;
+                        let n = parse_num(t)?;
+                        output.push(Line::Directive(Directive::Ineschr(n as usize)));
+                    },
+                    "db" => {
+                        let t = parse_next(itr.next(), *line)?;
+                        let n = parse_num(t)?;
+                        output.push(Line::Directive(Directive::Db(parse_u8(n, *line)?)));
+                    },
+                    "ds" => {
+                        let t = parse_next(itr.next(), *line)?;
+                        let n = parse_num(t)?;
+                        output.push(Line::Directive(Directive::Ds(n)));
+                    },
+                    s => return Err(err!(format!("no such directive: '{}'", s), *line)),
+                }
             },
             Token::Ident(i) => {
                 if let Some(DToken { token, line }) = itr.next() {
@@ -426,8 +459,8 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
             Token::Newline => {
                 already_found_newline = true;
             },
-            _ => {
-                return Err(err!("expected either an instruction, a directive or a label", *line));
+            t => {
+                return Err(err!(format!("expected either an instruction, a directive or a label, got token '{:?}'", t), *line));
             },
         }
         // expecting newline after line contents
