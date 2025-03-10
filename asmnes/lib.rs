@@ -130,7 +130,7 @@ pub enum Token {
     A,
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 enum LexState {
     Awaiting,
     ReadingBin,
@@ -142,6 +142,7 @@ enum LexState {
 }
 
 fn get_radix(ls: LexState, line_number: usize) -> Result<u32, AsmnesError> {
+    println!("state: {:?}", ls);
     match ls {
         LexState::ReadingHex => Ok(16),
         LexState::ReadingBin => Ok(2),
@@ -280,9 +281,12 @@ fn parse_next(i: Option<&DToken>, line: usize) -> Result<&DToken, AsmnesError> {
     i.ok_or(err!("unexpected end of line", line))
 }
 
+// Note parser is very stupid, will make assumptions that will be caught by the
+// logical assembler.
 pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
     let mut output: Vec<Line> = Vec::new();
     let mut itr = program.iter().peekable();
+    let mut already_found_newline = false;
     while let Some(DToken { token, line }) = itr.next() {
         match token {
             Token::Directive(d) => {
@@ -315,35 +319,39 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
                                 // Relative addr-mode takes precedence
                                 let n = parse_u8(*n, *line)?;
                                 output.push(Line::Instruction(Instruction(o, AddressingMode::REL, Operand::U8(n))));
-                            } else if opcode_addressing_modes(&o).iter().any(|a| *a == ZPG || *a == ZPG_X || *a == ZPG_Y) {
+                            } else {
+                                // Check if we can use ZPG
+                                let (operand, zpg) = if let Ok(operand) = parse_u8(*n, *line) && opcode_addressing_modes(&o).iter().any(|a| *a == ZPG || *a == ZPG_X || *a == ZPG_Y) {
+                                    (Operand::U8(operand), true)
+                                } else {
+                                    (Operand::U16(*n), false)
+                                };
                                 // Zero page
-                                let operand = parse_u8(*n, *line)?;
-                                //let t = parse_next(itr.next(), *line)?;
                                 if let Some(DToken { token, line }) = itr.next() {
                                     match token {
                                         Token::Newline => {
                                             // non-x/y addressed
-                                            output.push(Line::Instruction(Instruction(o, AddressingMode::ZPG, Operand::U8(operand))));
+                                            already_found_newline = true; 
+                                            output.push(Line::Instruction(Instruction(o, if zpg {AddressingMode::ZPG} else {AddressingMode::ABS}, operand)));
                                             continue;
                                         },
                                         Token::Comma => {
+                                            // x/y addressed
                                             let DToken { token, line } = parse_next(itr.next(), *line)?;
                                             output.push(Line::Instruction(Instruction(o, 
                                                     match token {
-                                                        Token::X => AddressingMode::ZPG_X,
-                                                        Token::Y => AddressingMode::ZPG_Y,
+                                                        Token::X => if zpg {AddressingMode::ZPG_X} else {AddressingMode::ABS_X},
+                                                        Token::Y => if zpg {AddressingMode::ZPG_Y} else {AddressingMode::ABS_Y},
                                                         _ => return Err(err!("expected either X or Y", *line))
                                                     },
-                                            Operand::U8(operand))));
+                                            operand)));
                                         },
                                         _ => return Err(err!("expected comma", *line)),
                                     }
                                 } else {
                                     // non-x/y addressed
-                                    output.push(Line::Instruction(Instruction(o, AddressingMode::ZPG, Operand::U8(operand))));
+                                    output.push(Line::Instruction(Instruction(o, if zpg {AddressingMode::ZPG} else {AddressingMode::ABS}, operand)));
                                 }
-                            } else if opcode_addressing_modes(&o).iter().any(|a| *a == ABS || *a == ABS_X || *a == ABS_Y) {
-
                             }
                         },
                         Token::ParenOpen => {
@@ -354,23 +362,30 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
                             let o = parse_opcode(i, *line)?;
                             output.push(Line::Instruction(Instruction(o, AddressingMode::A, Operand::No)));
                         },
+                        Token::Newline => {
+                            // Implied
+                            already_found_newline = true;
+                            let o = parse_opcode(i, *line)?;
+                            output.push(Line::Instruction(Instruction(o, AddressingMode::IMPL, Operand::No)));
+                        },
                         _ => {
                             return Err(err!("wrong token after ident", *line))
                         },
                     }
                 } else {
-                    // must be implied
-                    //return Err(err!("unexpected end of line", *line));
+                    let o = parse_opcode(i, *line)?;
+                    output.push(Line::Instruction(Instruction(o, AddressingMode::IMPL, Operand::No)));
                 }
             },
             Token::Newline => {
+                already_found_newline = true;
             },
             _ => {
-                return Err(err!("parse error", *line));
+                return Err(err!("expected either an instruction, a directive or a label", *line));
             },
         }
-        if *token != Token::Newline {
-            // expecting newline after line contents
+        // expecting newline after line contents
+        if !already_found_newline {
             if let Some(DToken { token, line }) = itr.next() {
                 if *token != Token::Newline {
                     return Err(err!("expected newline", *line));
