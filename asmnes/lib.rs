@@ -61,10 +61,14 @@ pub enum Operand {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Directive {
-    /// Reserve n bytes
+    /// Reserve n bytes.
     Ds(u16),
+    /// Manually put bytes into memory.
     Db(u8),
+    /// Sets the memory location where new labels/instructions are set, the
+    /// 13nth lower bits determines the offset into bank memroy.
     Org(u16),
+    /// Switches to bank.
     Bank(usize),
     /// nr of 16KB bank of PRG code
     Inesprg(usize), 
