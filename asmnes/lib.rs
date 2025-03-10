@@ -262,10 +262,13 @@ fn parse_opcode(i: &str, line: usize) -> Result<Opcode, AsmnesError> {
     i.parse::<Opcode>().map_err(|_| err!("expected opcode", line))
 }
 
+/// Numbers after the lex stage are u16, make sure n is a u8 or throw
+/// an error.
 fn parse_u8(n: u16, line: usize) -> Result<u8, AsmnesError> {
     u8::try_from(n).map_err(|_| err!("expected u8", line))
 }
 
+/// Extracts the number from the dtoken.
 fn parse_num(dtoken: &DToken) -> Result<u16, AsmnesError> {
     let DToken { token, line } = dtoken;
     match token {
@@ -276,13 +279,24 @@ fn parse_num(dtoken: &DToken) -> Result<u16, AsmnesError> {
     }
 }
 
+/// Make sure this dtoken contains this token.
+fn parse_expect(dtoken: &DToken, t: Token) -> Result<(), AsmnesError> {
+    let DToken { token, line } = dtoken;
+    if t == *token {
+        Ok(())
+    } else {
+        Err(err!(format!("expected '{:?}', got '{:?}'", t, token), *line))
+    }
+}
+
 // Helper for when you expect a new symbol
 fn parse_next(i: Option<&DToken>, line: usize) -> Result<&DToken, AsmnesError> {
     i.ok_or(err!("unexpected end of line", line))
 }
 
-// Note parser is very stupid, will make assumptions that will be caught by the
-// logical assembler.
+/// Parses lex output.
+/// Note: parser is very stupid, will make assumptions that will be caught by the
+/// logical assembler.
 pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
     let mut output: Vec<Line> = Vec::new();
     let mut itr = program.iter().peekable();
@@ -356,6 +370,38 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
                         },
                         Token::ParenOpen => {
                             // Any indirect addr-mode
+                            let o = parse_opcode(i, *line)?;
+                            let t = parse_next(itr.next(), *line)?;
+                            let n = parse_num(t)?;
+                            let DToken { token, line } = parse_next(itr.next(), *line)?;
+                            match token {
+                                Token::ParenClose => {
+                                    // indirect or y indexed
+                                    if let Ok(DToken { token, line }) = parse_next(itr.next(), *line) {
+                                        match token {
+                                            Token::Comma => {
+                                                parse_expect(parse_next(itr.next(), *line)?, Token::Y)?;
+                                                output.push(Line::Instruction(Instruction(o, AddressingMode::IND_Y, Operand::U8(parse_u8(n, *line)?))));
+                                            },
+                                            Token::Newline => {
+                                                // indirect
+                                                output.push(Line::Instruction(Instruction(o, AddressingMode::IND, Operand::U16(n))));
+                                            },
+                                            _ => return Err(err!("unexpected symbol when trying to parse indirect/Y-indexed addressing", *line)),
+                                        }
+                                    } else {
+                                        //  indirect
+                                        output.push(Line::Instruction(Instruction(o, AddressingMode::IND, Operand::U16(n))));
+                                    }
+                                },
+                                Token::Comma => {
+                                    // indirect x addressed
+                                    output.push(Line::Instruction(Instruction(o, AddressingMode::X_IND, Operand::U8(parse_u8(n, *line)?))));
+                                    parse_expect(parse_next(itr.next(), *line)?, Token::X)?;
+                                    parse_expect(parse_next(itr.next(), *line)?, Token::ParenClose)?;
+                                },
+                                t => return Err(err!(format!("unexpected token '{:?}' when trying to parse any of the indirect addressing modes", t), *line)),
+                            }
                         },
                         Token::A => {
                             // Accumulator addr-mode
@@ -396,6 +442,8 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
     Ok(output)
 }
 
+/// Takes a high-level representation of the program and creates the final output
+/// (hopefully).
 pub fn logical_assemble(program: &[Line]) -> Result<AsmnesOutput, AsmnesError> {
     struct UnresolvedLabel {
         bank: Option<usize>,
