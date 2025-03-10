@@ -10,6 +10,7 @@ use shared::Range;
 use shared::opcode_addressing_modes;
 use std::fmt;
 use std::collections::HashMap;
+use std::fs;
 
 // TODO make a trhow! macro that prints the assembler line/column, and automates creating the error
 //#[derive(Debug)]
@@ -151,7 +152,16 @@ fn get_radix(ls: LexState, line_number: usize) -> Result<u32, AsmnesError> {
     }
 }
 
-// A delimiter ends the previous work
+/// Fully assemble a program.
+pub fn assemble(program: &str) -> Result<AsmnesOutput, AsmnesError> {
+    logical_assemble(&parse(lex(program)?)?)
+}
+
+pub fn assemble_from_file(path: &str) -> Result<AsmnesOutput, AsmnesError> {
+    assemble(&fs::read_to_string(path).map_err(|e| err!(format!("failed to load file: {e}"), 0))?)
+}
+
+/// A delimiter ends the previous work, sets state to awaiting
 fn delimiter(state: &mut LexState, line: usize, output: &mut Vec<DToken>, acc: &mut String) -> Result<(), AsmnesError> {
     match state {
         LexState::ReadingIdent => {
