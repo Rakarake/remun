@@ -70,10 +70,13 @@ pub enum Directive {
     Org(u16),
     /// Switches to bank.
     Bank(usize),
-    /// nr of 16KB bank of PRG code
+    /// nr of 16KB bank of PRG code.
     Inesprg(usize), 
-    /// nr of 8KB bank of CHR data
+    /// nr of 8KB bank of CHR data.
     Ineschr(usize), 
+    /// Which mapper to use.
+    Inesmap(usize),
+    /// 
 }
 
 /// The output of a logical assembly, should contain everything to create
