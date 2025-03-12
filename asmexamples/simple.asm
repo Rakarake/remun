@@ -1,7 +1,10 @@
-; All addressing modes!
+.inesmap 0
+.inesmir 1
 .inesprg 1
+.ineschr 1
 .bank 0
 
+; All addressing modes!
 NOP           ; Implied
 LDA #12       ; Immediate
 BNE $12       ; Relative

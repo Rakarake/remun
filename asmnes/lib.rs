@@ -525,6 +525,8 @@ pub fn logical_assemble(program: &[Line]) -> Result<AsmnesOutput, AsmnesError> {
     let mut unresolved_labels: Vec<UnresolvedLabel> = Vec::new();
     let mut mapper: Option<usize> = None;
     let mut mirroring: Option<usize> = None;
+    let mut prg_banks: Option<usize> = None;
+    let mut chr_banks: Option<usize> = None;
     
     // first pass
     {
@@ -559,18 +561,27 @@ pub fn logical_assemble(program: &[Line]) -> Result<AsmnesOutput, AsmnesError> {
                             write_byte(&mut banks, current_bank, &mut address, line_number, *b)?;
                         },
                         Directive::Inesprg(n) => {
-                            for _ in 0..*n {
-                                banks.push(Bank {
-                                    data: vec![0; 4000],
-                                });
+                            if banks.is_empty() {
+                                prg_banks = Some(*n);
+                                for _ in 0..*n {
+                                    banks.push(Bank {
+                                        data: vec![0; 4000],
+                                    });
+                                }
+                            } else {
+                                return Err(err!("have already specified banks!", line_number));
                             }
                         },
                         Directive::Ineschr(n) => {
-                            // TODO make a difference between chr and prg banks?
-                            for _ in 0..*n {
-                                banks.push(Bank {
-                                    data: vec![0; 4000],
-                                });
+                            if !banks.is_empty() {
+                                chr_banks = Some(*n);
+                                for _ in 0..*n {
+                                    banks.push(Bank {
+                                        data: vec![0; 4000],
+                                    });
+                                }
+                            } else {
+                                return Err(err!("have to specify .inesprg first!", line_number));
                             }
                         },
                         Directive::Inesmap(n) => {
@@ -630,6 +641,13 @@ pub fn logical_assemble(program: &[Line]) -> Result<AsmnesOutput, AsmnesError> {
         write_byte(&mut banks, bank, &mut address, line_number, hi)?;
     }
     
-    Ok(AsmnesOutput { prg_rom_size: (), chr_rom_size: (), mirroring: (), mapper: (), banks, labels })
+    Ok(AsmnesOutput {
+        prg_rom_size: prg_banks.ok_or(err!("need to specify .inesprg", 0))?,
+        chr_rom_size: chr_banks.ok_or(err!("need to specify .ineschr", 0))?,
+        mirroring: mirroring.ok_or(err!("need to specify .inesmir", 0))?,
+        mapper: mapper.ok_or(err!("need to specify .inesmap", 0))?,
+        banks,
+        labels
+    })
 }
 
