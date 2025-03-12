@@ -70,19 +70,28 @@ pub enum Directive {
     Org(u16),
     /// Switches to bank.
     Bank(usize),
-    /// nr of 16KB bank of PRG code.
+    /// nr of 16KiB bank of PRG code.
     Inesprg(usize), 
-    /// nr of 8KB bank of CHR data.
+    /// nr of 8KiB bank of CHR data.
     Ineschr(usize), 
     /// Which mapper to use.
     Inesmap(usize),
-    /// 
+    /// Vertical (1)/Horizontal (0, or mapper controlled) mirroring.
+    Inesmir(usize),
 }
 
 /// The output of a logical assembly, should contain everything to create
-/// a INES file. Does not contain banks.
+/// a INES file.
 pub struct AsmnesOutput {
+    /// nr of 16KiB bank of PRG code.
+    pub prg_rom_size: usize,
+    /// nr of 8KiB bank of CHR code.
+    pub chr_rom_size: usize,
+    pub mirroring: usize,
+    /// The iNES mapper index, does not fully describe the hardware
+    pub mapper: usize,
     pub banks: Vec<Bank>,
+    /// Debug information
     pub labels: HashMap<String, u16>,
 }
 
@@ -345,6 +354,16 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
                         let n = parse_num(t)?;
                         output.push(Line::Directive(Directive::Ineschr(n as usize)));
                     },
+                    "inesmap" => {
+                        let t = parse_next(itr.next(), *line)?;
+                        let n = parse_num(t)?;
+                        output.push(Line::Directive(Directive::Inesmap(n as usize)));
+                    },
+                    "inesmir" => {
+                        let t = parse_next(itr.next(), *line)?;
+                        let n = parse_num(t)?;
+                        output.push(Line::Directive(Directive::Inesmir(n as usize)));
+                    },
                     "db" => {
                         let t = parse_next(itr.next(), *line)?;
                         let n = parse_num(t)?;
@@ -504,6 +523,8 @@ pub fn logical_assemble(program: &[Line]) -> Result<AsmnesOutput, AsmnesError> {
     let mut banks: Vec<Bank> = Vec::new();
     let mut labels: HashMap<String, u16> = HashMap::new();
     let mut unresolved_labels: Vec<UnresolvedLabel> = Vec::new();
+    let mut mapper: Option<usize> = None;
+    let mut mirroring: Option<usize> = None;
     
     // first pass
     {
@@ -551,6 +572,12 @@ pub fn logical_assemble(program: &[Line]) -> Result<AsmnesOutput, AsmnesError> {
                                     data: vec![0; 4000],
                                 });
                             }
+                        },
+                        Directive::Inesmap(n) => {
+                            mapper = Some(*n);
+                        },
+                        Directive::Inesmir(n) => {
+                            mirroring = Some(*n);
                         },
                     }
                 },
@@ -603,6 +630,6 @@ pub fn logical_assemble(program: &[Line]) -> Result<AsmnesOutput, AsmnesError> {
         write_byte(&mut banks, bank, &mut address, line_number, hi)?;
     }
     
-    Ok(AsmnesOutput { banks, labels })
+    Ok(AsmnesOutput { prg_rom_size: (), chr_rom_size: (), mirroring: (), mapper: (), banks, labels })
 }
 
