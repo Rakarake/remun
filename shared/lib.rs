@@ -3,7 +3,8 @@ use Opcode::*;
 use std::{collections::HashMap, fmt, str::FromStr};
 use strum::IntoEnumIterator;
 
-/// `0`: inclusive, `1`: exclusive
+/// Simple range struct for range checking.
+/// `0`: inclusive, `1`: exclusive.
 #[derive(Clone, Copy, Debug)]
 pub struct Range(pub u16, pub u16);
 impl Range {
@@ -106,6 +107,7 @@ impl AddressingMode {
     }
 }
 
+// TODO capitalization should not matter
 impl FromStr for Opcode {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -128,7 +130,7 @@ impl FromStr for Opcode {
     }
 }
 
-/// All opcodes, implements Display
+/// All opcodes, implements Display.
 #[allow(non_snake_case)]
 #[derive(Debug, PartialEq, Eq, Clone, strum_macros::Display, strum_macros::EnumIter)]
 pub enum Opcode {
@@ -217,6 +219,7 @@ pub fn opcode_iter() -> OpcodeIter {
     Opcode::iter()
 }
 
+/// Gets all available addressing modes for opcode.
 pub fn opcode_addressing_modes(o: &Opcode) -> Vec<AddressingMode> {
     CODEPOINTS
         .iter()
@@ -236,7 +239,8 @@ pub fn opcode_addressing_modes(o: &Opcode) -> Vec<AddressingMode> {
         .collect()
 }
 
-// Instructions
+/// A codepoint is an opcode and a addressing-mode, in other words
+/// an instruction without the operand.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Codepoint {
     pub opcode: Opcode,
@@ -251,6 +255,7 @@ macro_rules! tabalize {
 }
 
 // Zoom out to see properly :)
+/// The entire 6502 instuction set.
 pub const CODEPOINTS: [Codepoint; 256] = tabalize! [
     BRK,IMPL ; ORA,X_IND ; JAM,J   ; SLO,X_IND ; NOP,ZPG   ; ORA,ZPG   ; ASL,ZPG   ; SLO,ZPG   ; PHP,IMPL ; ORA,IMM   ; ASL,A    ; ANC,IMM   ; NOP,ABS   ; ORA,ABS   ; ASL,ABS   ; SLO,ABS   ;
     BPL,REL  ; ORA,IND_Y ; JAM,J   ; SLO,IND_Y ; NOP,ZPG_X ; ORA,ZPG_X ; ASL,ZPG_X ; SLO,ZPG_X ; CLC,IMPL ; ORA,ABS_Y ; NOP,IMPL ; SLO,ABS_Y ; NOP,ABS_X ; ORA,ABS_X ; ASL,ABS_X ; SLO,ABS_X ;

@@ -102,11 +102,13 @@ macro_rules! err {
     };
 }
 
+/// A decorated token.
 #[derive(Debug, Clone)]
 pub struct DToken {
     token: Token,
     line: usize,
 }
+/// A token, the result of lexing.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Ident(String),
