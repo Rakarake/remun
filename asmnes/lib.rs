@@ -47,11 +47,17 @@ pub struct Instruction(pub Opcode, pub AddressingMode, pub Operand);
 
 /// A possible line in the assembly
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Line {
+pub enum Statement {
     Instruction(Instruction),
     Label(String),
     Directive(Directive),
     Comment(String),
+}
+
+#[derive(Debug, Clone)]
+pub struct DStatement {
+    statement: Statement,
+    line: usize,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -72,15 +78,15 @@ pub enum Directive {
     /// 13nth lower bits determines the offset into bank memroy.
     Org(u16),
     /// Switches to bank.
-    Bank(usize),
+    Bank(u16),
     /// nr of 16KiB bank of PRG code.
-    Inesprg(usize),
+    Inesprg(u16),
     /// nr of 8KiB bank of CHR data.
-    Ineschr(usize),
+    Ineschr(u16),
     /// Which mapper to use.
-    Inesmap(usize),
+    Inesmap(u16),
     /// Vertical (1)/Horizontal (0, or mapper controlled) mirroring.
-    Inesmir(usize),
+    Inesmir(u16),
 }
 
 /// Helper macro to return an error with context
@@ -129,7 +135,6 @@ enum LexState {
 }
 
 fn get_radix(ls: LexState, line_number: usize) -> Result<u32, AsmnesError> {
-    println!("state: {:?}", ls);
     match ls {
         LexState::ReadingHex => Ok(16),
         LexState::ReadingBin => Ok(2),
@@ -338,96 +343,77 @@ fn parse_next(i: Option<&DToken>, line: usize) -> Result<&DToken, AsmnesError> {
 /// Parses lex output.
 /// Note: parser is very stupid, will make assumptions that will be caught by the
 /// logical assembler.
-pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
-    let mut output: Vec<Line> = Vec::new();
+pub fn parse(program: Vec<DToken>) -> Result<Vec<DStatement>, AsmnesError> {
+    let mut output: Vec<DStatement> = Vec::new();
     let mut itr = program.iter().peekable();
     let mut already_found_newline = false;
     while let Some(DToken { token, line }) = itr.next() {
+        let line = *line;
         match token {
             Token::Directive(d) => {
                 // TODO need some table of directive names to check for
                 // might want to change to all-capital letters, then check both
                 // capital/noncapital versions, should be done for opcodes as well
+
+                /// Parses next token as a u16, pushes a directive
+                macro_rules! directive_push_num {
+                    ($statement:expr) => {{
+                        let t = parse_next(itr.next(), line)?;
+                        let n = parse_num(t)?;
+                        output.push(DStatement { statement: Statement::Directive($statement(n)), line });
+                    }};
+                }
                 match d.as_str() {
-                    "org" => {
-                        let t = parse_next(itr.next(), *line)?;
-                        let n = parse_num(t)?;
-                        output.push(Line::Directive(Directive::Org(n)));
-                    }
-                    "bank" => {
-                        let t = parse_next(itr.next(), *line)?;
-                        let n = parse_num(t)?;
-                        output.push(Line::Directive(Directive::Bank(n as usize)));
-                    }
-                    "inesprg" => {
-                        let t = parse_next(itr.next(), *line)?;
-                        let n = parse_num(t)?;
-                        output.push(Line::Directive(Directive::Inesprg(n as usize)));
-                    }
-                    "ineschr" => {
-                        let t = parse_next(itr.next(), *line)?;
-                        let n = parse_num(t)?;
-                        output.push(Line::Directive(Directive::Ineschr(n as usize)));
-                    }
-                    "inesmap" => {
-                        let t = parse_next(itr.next(), *line)?;
-                        let n = parse_num(t)?;
-                        output.push(Line::Directive(Directive::Inesmap(n as usize)));
-                    }
-                    "inesmir" => {
-                        let t = parse_next(itr.next(), *line)?;
-                        let n = parse_num(t)?;
-                        output.push(Line::Directive(Directive::Inesmir(n as usize)));
-                    }
+                    "org" => directive_push_num!(Directive::Org),
+                    "bank" => directive_push_num!(Directive::Bank),
+                    "inesprg" => directive_push_num!(Directive::Inesprg),
+                    "ineschr" => directive_push_num!(Directive::Ineschr),
+                    "inesmap" => directive_push_num!(Directive::Inesmap),
+                    "inesmir" => directive_push_num!(Directive::Inesmir),
                     "db" => {
-                        let t = parse_next(itr.next(), *line)?;
+                        let t = parse_next(itr.next(), line)?;
                         let n = parse_num(t)?;
-                        output.push(Line::Directive(Directive::Db(parse_u8(n, *line)?)));
+                        output.push(DStatement { statement: Statement::Directive(Directive::Db(parse_u8(n, line)?)), line });
                     }
-                    "ds" => {
-                        let t = parse_next(itr.next(), *line)?;
-                        let n = parse_num(t)?;
-                        output.push(Line::Directive(Directive::Ds(n)));
-                    }
-                    s => return Err(err!(format!("no such directive: '{}'", s), *line)),
+                    "ds" => directive_push_num!(Directive::Ds),
+                    s => return Err(err!(format!("no such directive: '{}'", s), line)),
                 }
             }
             Token::Ident(i) => {
+                macro_rules! instruction_push {
+                    ($o:expr, $a:expr, $operand:expr) => {{
+                        output.push(DStatement { statement: Statement::Instruction(Instruction($o, $a, $operand)), line });
+                    }};
+                }
                 if let Some(DToken { token, line }) = itr.next() {
+                    let line = *line;
+                    // note: the line will be the same regardless of new tokens
                     match token {
                         // Label
                         Token::Colon => {
-                            output.push(Line::Label(i.clone()));
+                            output.push(DStatement { statement: Statement::Label(i.clone()), line });
                         }
                         // Immediate mode
                         Token::Hash => {
-                            let o = parse_opcode(i, *line)?;
-                            let t = parse_next(itr.next(), *line)?;
+                            let o = parse_opcode(i, line)?;
+                            let t = parse_next(itr.next(), line)?;
                             let n = parse_num(t)?;
-                            let n = parse_u8(n, *line)?;
-                            output.push(Line::Instruction(Instruction(
-                                o,
-                                AddressingMode::IMM,
-                                Operand::U8(n),
-                            )));
+                            let n = parse_u8(n, line)?;
+                            instruction_push!(o, AddressingMode::IMM, Operand::U8(n));
                         }
                         Token::Num(n) => {
                             // Absolute + X/Y indexed, relative or Zero-page + X/Y indexed
                             // TODO need to know the available addressing modes for an opcode, to
                             // see if it can use zero-page, or if it's using relative
-                            let o = parse_opcode(i, *line)?;
+                            let o = parse_opcode(i, line)?;
                             use AddressingMode::*;
                             if opcode_addressing_modes(&o).iter().any(|a| *a == REL) {
                                 // Relative addr-mode takes precedence
-                                let n = parse_u8(*n, *line)?;
-                                output.push(Line::Instruction(Instruction(
-                                    o,
-                                    AddressingMode::REL,
-                                    Operand::U8(n),
-                                )));
+                                let n = parse_u8(*n, line)?;
+                                instruction_push!(o, AddressingMode::REL, Operand::U8(n));
                             } else {
                                 // Check if we can use ZPG
-                                let (operand, zpg) = if let Ok(operand) = parse_u8(*n, *line)
+                                let (operand, zpg) = if let Ok(operand) = parse_u8(*n, line)
                                     && opcode_addressing_modes(&o)
                                         .iter()
                                         .any(|a| *a == ZPG || *a == ZPG_X || *a == ZPG_Y)
@@ -438,26 +424,28 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
                                 };
                                 // Zero page
                                 if let Some(DToken { token, line }) = itr.next() {
+                                    let line = *line;
                                     match token {
                                         Token::Newline => {
                                             // non-x/y addressed
                                             already_found_newline = true;
-                                            output.push(Line::Instruction(Instruction(
+                                            instruction_push!(
                                                 o,
                                                 if zpg {
                                                     AddressingMode::ZPG
                                                 } else {
                                                     AddressingMode::ABS
                                                 },
-                                                operand,
-                                            )));
+                                                operand
+                                            );
                                             continue;
                                         }
                                         Token::Comma => {
                                             // x/y addressed
                                             let DToken { token, line } =
-                                                parse_next(itr.next(), *line)?;
-                                            output.push(Line::Instruction(Instruction(
+                                                parse_next(itr.next(), line)?;
+                                            let line = *line;
+                                            instruction_push!(
                                                 o,
                                                 match token {
                                                     Token::X => {
@@ -477,18 +465,18 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
                                                     _ => {
                                                         return Err(err!(
                                                             "expected either X or Y",
-                                                            *line
+                                                            line
                                                         ));
                                                     }
                                                 },
-                                                operand,
-                                            )));
+                                                operand
+                                            );
                                         }
-                                        _ => return Err(err!("expected comma", *line)),
+                                        _ => return Err(err!("expected comma", line)),
                                     }
                                 } else {
                                     // non-x/y addressed
-                                    output.push(Line::Instruction(Instruction(
+                                    output.push(DStatement { line, statement: Statement::Instruction(Instruction(
                                         o,
                                         if zpg {
                                             AddressingMode::ZPG
@@ -496,16 +484,16 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
                                             AddressingMode::ABS
                                         },
                                         operand,
-                                    )));
+                                    ))});
                                 }
                             }
                         }
                         Token::ParenOpen => {
                             // Any indirect addr-mode
-                            let o = parse_opcode(i, *line)?;
-                            let t = parse_next(itr.next(), *line)?;
+                            let o = parse_opcode(i, line)?;
+                            let t = parse_next(itr.next(), line)?;
                             let n = parse_num(t)?;
-                            let DToken { token, line } = parse_next(itr.next(), *line)?;
+                            let DToken { token, line } = parse_next(itr.next(), line)?;
                             match token {
                                 Token::ParenClose => {
                                     // indirect or y indexed
@@ -518,19 +506,19 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
                                                     parse_next(itr.next(), *line)?,
                                                     Token::Y,
                                                 )?;
-                                                output.push(Line::Instruction(Instruction(
+                                                instruction_push!(
                                                     o,
                                                     AddressingMode::IND_Y,
-                                                    Operand::U8(parse_u8(n, *line)?),
-                                                )));
+                                                    Operand::U8(parse_u8(n, *line)?)
+                                                );
                                             }
                                             Token::Newline => {
                                                 // indirect
-                                                output.push(Line::Instruction(Instruction(
+                                                instruction_push!(
                                                     o,
                                                     AddressingMode::IND,
-                                                    Operand::U16(n),
-                                                )));
+                                                    Operand::U16(n)
+                                                );
                                             }
                                             _ => {
                                                 return Err(err!(
@@ -541,20 +529,20 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
                                         }
                                     } else {
                                         //  indirect
-                                        output.push(Line::Instruction(Instruction(
+                                        instruction_push!(
                                             o,
                                             AddressingMode::IND,
-                                            Operand::U16(n),
-                                        )));
+                                            Operand::U16(n)
+                                        );
                                     }
                                 }
                                 Token::Comma => {
                                     // indirect x addressed
-                                    output.push(Line::Instruction(Instruction(
+                                    instruction_push!(
                                         o,
                                         AddressingMode::X_IND,
-                                        Operand::U8(parse_u8(n, *line)?),
-                                    )));
+                                        Operand::U8(parse_u8(n, *line)?)
+                                    );
                                     parse_expect(parse_next(itr.next(), *line)?, Token::X)?;
                                     parse_expect(
                                         parse_next(itr.next(), *line)?,
@@ -574,32 +562,32 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
                         }
                         Token::A => {
                             // Accumulator addr-mode
-                            let o = parse_opcode(i, *line)?;
-                            output.push(Line::Instruction(Instruction(
+                            let o = parse_opcode(i, line)?;
+                            instruction_push!(
                                 o,
                                 AddressingMode::A,
-                                Operand::No,
-                            )));
+                                Operand::No
+                            );
                         }
                         Token::Newline => {
                             // Implied
                             already_found_newline = true;
-                            let o = parse_opcode(i, *line)?;
-                            output.push(Line::Instruction(Instruction(
+                            let o = parse_opcode(i, line)?;
+                            instruction_push!(
                                 o,
                                 AddressingMode::IMPL,
-                                Operand::No,
-                            )));
+                                Operand::No
+                            );
                         }
-                        _ => return Err(err!("wrong token after ident", *line)),
+                        _ => return Err(err!("wrong token after ident", line)),
                     }
                 } else {
-                    let o = parse_opcode(i, *line)?;
-                    output.push(Line::Instruction(Instruction(
+                    let o = parse_opcode(i, line)?;
+                    instruction_push!(
                         o,
                         AddressingMode::IMPL,
-                        Operand::No,
-                    )));
+                        Operand::No
+                    );
                 }
             }
             Token::Newline => {
@@ -611,7 +599,7 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
                         "expected either an instruction, a directive or a label, got token '{:?}'",
                         t
                     ),
-                    *line
+                    line
                 ));
             }
         }
@@ -630,9 +618,9 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
 /// Writes a byte and advances address.
 fn write_byte(
     banks: Option<&mut Vec<u8>>,
-    bank: Option<usize>,
-    inesprg: Option<usize>,
-    ineschr: Option<usize>,
+    bank: Option<u16>,
+    inesprg: Option<u16>,
+    ineschr: Option<u16>,
     address: &mut u16,
     line_number: usize,
     byte: u8,
@@ -657,46 +645,46 @@ fn write_byte(
     Ok(())
 }
 
-fn create_banks(inesprg: usize, ineschr: usize) -> Vec<u8> {
-    vec![0; inesprg * 1024 * 16 + ineschr * 1024 * 8]
+fn create_banks(inesprg: u16, ineschr: u16) -> Vec<u8> {
+    vec![0; inesprg as usize * 1024 * 16 + ineschr as usize * 1024 * 8]
 }
 
 // TODO IMPORTANT carry over metainfo about correct line numbers from parser, replace line_number
+// TODO make some usize to u16 for uniformity
 // TODO fix "line_number", "current_bank" naming
-// TODO remove first pass unecessary scope
 // TODO abstract similar errors (i.g. write_byte and building the final struct)
 // TODO split code into modules
 /// Takes a high-level representation of the program and creates the final output
 /// (hopefully).
-pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
+pub fn logical_assemble(program: &[DStatement]) -> Result<Ines, AsmnesError> {
     struct UnresolvedLabel {
-        bank: Option<usize>,
+        bank: Option<u16>,
         address: u16,
         label: String,
-        line_number: usize,
+        line: usize,
     }
     let mut banks: Option<Vec<u8>> = None;
     let mut labels: HashMap<String, u16> = HashMap::new();
     let mut unresolved_labels: Vec<UnresolvedLabel> = Vec::new();
-    let mut mapper: Option<usize> = None;
-    let mut mirroring: Option<usize> = None;
-    let mut inesprg: Option<usize> = None;
-    let mut ineschr: Option<usize> = None;
+    let mut mapper: Option<u16> = None;
+    let mut mirroring: Option<u16> = None;
+    let mut inesprg: Option<u16> = None;
+    let mut ineschr: Option<u16> = None;
 
     let mut address: u16 = 0;
-    let mut line_number: usize = 1;
-    let mut current_bank: Option<usize> = None;
+    let mut current_bank: Option<u16> = None;
 
     // first pass
-    for line in program {
-        match line {
-            Line::Comment(_) => {}
-            Line::Label(l) => {
+    for DStatement { statement, line } in program {
+        let line = *line;
+        match statement {
+            Statement::Comment(_) => {}
+            Statement::Label(l) => {
                 if labels.insert(l.clone(), address).is_some() {
-                    return Err(err!("label already defined", line_number));
+                    return Err(err!("label already defined", line));
                 }
             }
-            Line::Directive(d) => match d {
+            Statement::Directive(d) => match d {
                 Directive::Bank(b) => {
                     current_bank = Some(*b);
                 }
@@ -707,11 +695,11 @@ pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
                     address += n;
                 }
                 Directive::Db(b) => {
-                    write_byte(banks.as_mut(), current_bank, inesprg, ineschr, &mut address, line_number, *b)?;
+                    write_byte(banks.as_mut(), current_bank, inesprg, ineschr, &mut address, line, *b)?;
                 }
                 Directive::Inesprg(n) => {
                     if inesprg.is_some() {
-                        return Err(err!(".inesprg is already specified", line_number));
+                        return Err(err!(".inesprg is already specified", line));
                     } else {
                         inesprg = Some(*n);
                         if let Some(c_n) = ineschr {
@@ -721,7 +709,7 @@ pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
                 }
                 Directive::Ineschr(n) => {
                     if ineschr.is_some() {
-                        return Err(err!(".ineschr is already specified", line_number));
+                        return Err(err!(".ineschr is already specified", line));
                     } else {
                         ineschr = Some(*n);
                         if let Some(p_n) = inesprg {
@@ -736,7 +724,7 @@ pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
                     mirroring = Some(*n);
                 }
             },
-            Line::Instruction(Instruction(op, a, operand)) => {
+            Statement::Instruction(Instruction(op, a, operand)) => {
                 if let Some(index) = CODEPOINTS.iter().position(
                     |Codepoint {
                          opcode,
@@ -749,7 +737,7 @@ pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
                         inesprg,
                         ineschr,
                         &mut address,
-                        line_number,
+                        line,
                         index as u8,
                     )?;
                     let byte_len = match operand {
@@ -761,7 +749,7 @@ pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
                                 inesprg,
                                 ineschr,
                                 &mut address,
-                                line_number,
+                                line,
                                 *b,
                             )?;
                             2
@@ -774,7 +762,7 @@ pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
                                 inesprg,
                                 ineschr,
                                 &mut address,
-                                line_number,
+                                line,
                                 lo,
                             )?;
                             write_byte(
@@ -783,7 +771,7 @@ pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
                                 inesprg,
                                 ineschr,
                                 &mut address,
-                                line_number,
+                                line,
                                 hi,
                             )?;
                             3
@@ -793,7 +781,7 @@ pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
                                 bank: current_bank,
                                 address,
                                 label: l.clone(),
-                                line_number,
+                                line,
                             });
                             // skip over bytes in the meantime
                             address += 2;
@@ -807,13 +795,12 @@ pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
                                 a.get_len() - 1,
                                 byte_len - 1
                             ),
-                            line_number
+                            line
                         ));
                     }
                 }
             }
         }
-        line_number += 1;
     }
 
     // second pass: go over all unresolved labels and fill them in
@@ -821,13 +808,13 @@ pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
         bank,
         mut address,
         label,
-        line_number,
+        line,
     } in unresolved_labels
     {
         let value = labels.get(&label).ok_or(err!("label not declared!", 0))?;
         let [lo, hi] = value.to_le_bytes();
-        write_byte(banks.as_mut(), bank, inesprg, ineschr, &mut address, line_number, lo)?;
-        write_byte(banks.as_mut(), bank, inesprg, ineschr, &mut address, line_number, hi)?;
+        write_byte(banks.as_mut(), bank, inesprg, ineschr, &mut address, line, lo)?;
+        write_byte(banks.as_mut(), bank, inesprg, ineschr, &mut address, line, hi)?;
     }
 
     Ok(Ines {
