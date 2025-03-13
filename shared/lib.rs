@@ -1,6 +1,6 @@
 use AddressingMode::*;
 use Opcode::*;
-use std::{fmt, str::FromStr};
+use std::{collections::HashMap, fmt, str::FromStr};
 use strum::IntoEnumIterator;
 
 /// `0`: inclusive, `1`: exclusive
@@ -16,6 +16,22 @@ impl fmt::Display for Range {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:#06X}-{:#06X}", self.0, self.1)
     }
+}
+
+/// Representation of an iNES file (not NES 2.0 just yet :))
+pub struct Ines {
+    /// Size of PRG ROM in 16KiB units.
+    pub prg_rom_size: usize,
+    /// Size of CHR ROM in 8KiB units.
+    pub chr_rom_size: usize,
+    /// Vertically mirrored (1), Horizontally mirrored (0).
+    pub mirroring: usize,
+    /// The iNES mapper index, does not fully describe the hardware.
+    pub mapper: usize,
+    /// The rest of the iNES file, PRG first then CHR.
+    pub banks: Vec<u8>,
+    /// Debug information.
+    pub labels: HashMap<String, u16>,
 }
 
 /// Addressing modes

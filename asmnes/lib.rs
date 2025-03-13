@@ -7,6 +7,7 @@ use shared::Codepoint;
 use shared::Opcode;
 use shared::Range;
 use shared::opcode_addressing_modes;
+use shared::Ines;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs;
@@ -82,21 +83,6 @@ pub enum Directive {
     Inesmir(usize),
 }
 
-/// The output of a logical assembly, should contain everything to create
-/// a INES file.
-pub struct AsmnesOutput {
-    /// nr of 16KiB bank of PRG code.
-    pub prg_rom_size: usize,
-    /// nr of 8KiB bank of CHR code.
-    pub chr_rom_size: usize,
-    pub mirroring: usize,
-    /// The iNES mapper index, does not fully describe the hardware
-    pub mapper: usize,
-    pub banks: Vec<Bank>,
-    /// Debug information
-    pub labels: HashMap<String, u16>,
-}
-
 /// Helper macro to return an error with context
 macro_rules! err {
     ($msg:expr, $line_number:expr) => {
@@ -108,40 +94,6 @@ macro_rules! err {
             asmnes_column: column!(),
         }
     };
-}
-
-#[derive(Clone)]
-pub struct Bank {
-    pub data: Vec<u8>,
-}
-
-/// Writes a byte and advances address.
-fn write_byte(
-    banks: &mut [Bank],
-    bank: Option<usize>,
-    address: &mut u16,
-    line_number: usize,
-    byte: u8,
-) -> Result<(), AsmnesError> {
-    if let Some(b) = bank {
-        // get the bank
-        let bank: &mut Bank = banks
-            .get_mut(b)
-            .ok_or(err!(format!("bank {b} does not exist"), line_number))?;
-        // write to bank
-        *bank
-            .data
-            .get_mut((*address & 0b0001111111111111) as usize)
-            .ok_or(err!(
-                format!("address {address} is outside of bank {b}'s range"),
-                line_number
-            ))? = byte;
-        *address += 1;
-        // TODO maybe add overflow check?
-        Ok(())
-    } else {
-        Err(err!("must specify bank", line_number))
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -190,11 +142,11 @@ fn get_radix(ls: LexState, line_number: usize) -> Result<u32, AsmnesError> {
 }
 
 /// Fully assemble a program.
-pub fn assemble(program: &str) -> Result<AsmnesOutput, AsmnesError> {
+pub fn assemble(program: &str) -> Result<Ines, AsmnesError> {
     logical_assemble(&parse(lex(program)?)?)
 }
 
-pub fn assemble_from_file(path: &str) -> Result<AsmnesOutput, AsmnesError> {
+pub fn assemble_from_file(path: &str) -> Result<Ines, AsmnesError> {
     assemble(&fs::read_to_string(path).map_err(|e| err!(format!("failed to load file: {e}"), 0))?)
 }
 
@@ -675,16 +627,44 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
     Ok(output)
 }
 
+/// Writes a byte and advances address.
+fn write_byte(
+    banks: &mut Vec<u8>,
+    bank: Option<usize>,
+    prg_banks: Option<usize>,
+    chr_banks: Option<usize>,
+    address: &mut u16,
+    line_number: usize,
+    byte: u8,
+) -> Result<(), AsmnesError> {
+    let bank = bank.ok_or(err!("must specify .bank", line_number))? as isize;
+    let prg_banks = prg_banks.ok_or(err!("must specify .inesprg", line_number))? as isize;
+    let chr_banks = chr_banks.ok_or(err!("must specify .ineschr", line_number))? as isize;
+    use std::cmp::min;
+    let offset = min(bank, prg_banks) * 1024 * 16 + if bank > prg_banks {(bank - prg_banks) * 1024 * 8} else {0};
+    // TODO do some sanity checking that we are writing within the right bank
+    // write to bank
+    *banks
+        .get_mut((*address & 0b0001111111111111) as usize + offset as usize)
+        .ok_or(err!(
+            format!("address {address} is outside of bank {bank}'s range"),
+            line_number
+        ))? = byte;
+    *address += 1;
+    // TODO maybe add an address overflow check?
+    Ok(())
+}
+
 /// Takes a high-level representation of the program and creates the final output
 /// (hopefully).
-pub fn logical_assemble(program: &[Line]) -> Result<AsmnesOutput, AsmnesError> {
+pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
     struct UnresolvedLabel {
         bank: Option<usize>,
         address: u16,
         label: String,
         line_number: usize,
     }
-    let mut banks: Vec<Bank> = Vec::new();
+    let mut banks: Vec<u8> = Vec::new();
     let mut labels: HashMap<String, u16> = HashMap::new();
     let mut unresolved_labels: Vec<UnresolvedLabel> = Vec::new();
     let mut mapper: Option<usize> = None;
@@ -847,7 +827,7 @@ pub fn logical_assemble(program: &[Line]) -> Result<AsmnesOutput, AsmnesError> {
         write_byte(&mut banks, bank, &mut address, line_number, hi)?;
     }
 
-    Ok(AsmnesOutput {
+    Ok(Ines {
         prg_rom_size: prg_banks.ok_or(err!("need to specify .inesprg", 0))?,
         chr_rom_size: chr_banks.ok_or(err!("need to specify .ineschr", 0))?,
         mirroring: mirroring.ok_or(err!("need to specify .inesmir", 0))?,
