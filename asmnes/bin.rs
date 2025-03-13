@@ -10,6 +10,6 @@ fn main() -> Result<(), AsmnesError> {
     let parse_output = parse(lex_output.clone())?;
     println!("Parse output: {:?}", parse_output);
     let logical_output = logical_assemble(&parse_output)?;
-    //println!("Logical output: {:?}", logical_output);
+    println!("Logical output: {:?}", logical_output.mapper);
     Ok(())
 }

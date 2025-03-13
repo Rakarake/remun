@@ -629,7 +629,7 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
 
 /// Writes a byte and advances address.
 fn write_byte(
-    banks: &mut Vec<u8>,
+    banks: Option<&mut Vec<u8>>,
     bank: Option<usize>,
     prg_banks: Option<usize>,
     chr_banks: Option<usize>,
@@ -640,14 +640,17 @@ fn write_byte(
     let bank = bank.ok_or(err!("must specify .bank", line_number))? as isize;
     let prg_banks = prg_banks.ok_or(err!("must specify .inesprg", line_number))? as isize;
     let chr_banks = chr_banks.ok_or(err!("must specify .ineschr", line_number))? as isize;
+    let banks = banks.ok_or(err!("all header info needs to be present", line_number))?;
+    if bank >= prg_banks + chr_banks {
+        return Err(err!(format!("bank {bank} does not exist"), line_number));
+    }
     use std::cmp::min;
     let offset = min(bank, prg_banks) * 1024 * 16 + if bank > prg_banks {(bank - prg_banks) * 1024 * 8} else {0};
-    // TODO do some sanity checking that we are writing within the right bank
-    // write to bank
+    let bank_address = (*address & 0b0001111111111111) as usize;
     *banks
-        .get_mut((*address & 0b0001111111111111) as usize + offset as usize)
+        .get_mut(bank_address + offset as usize)
         .ok_or(err!(
-            format!("address {address} is outside of bank {bank}'s range"),
+            format!("internal assembler error, should not happen!"),
             line_number
         ))? = byte;
     *address += 1;
@@ -655,6 +658,12 @@ fn write_byte(
     Ok(())
 }
 
+fn create_banks(inesprg: usize, ineschr: usize) -> Vec<u8> {
+    vec![0; inesprg * 1024 * 16 + ineschr * 1024 * 8]
+}
+
+// TODO fix inconsitent naming (use ineschr etc)
+// TODO split code into modules
 /// Takes a high-level representation of the program and creates the final output
 /// (hopefully).
 pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
@@ -664,7 +673,7 @@ pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
         label: String,
         line_number: usize,
     }
-    let mut banks: Vec<u8> = Vec::new();
+    let mut banks: Option<Vec<u8>> = None;
     let mut labels: HashMap<String, u16> = HashMap::new();
     let mut unresolved_labels: Vec<UnresolvedLabel> = Vec::new();
     let mut mapper: Option<usize> = None;
@@ -688,17 +697,7 @@ pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
                 }
                 Line::Directive(d) => match d {
                     Directive::Bank(b) => {
-                        if *b < banks.len() {
-                            current_bank = Some(*b);
-                        } else {
-                            return Err(err!(
-                                format!(
-                                    "trying to define bank {b} but only banks 0 to {} exist",
-                                    banks.len()
-                                ),
-                                line_number
-                            ));
-                        }
+                        current_bank = Some(*b);
                     }
                     Directive::Org(a) => {
                         address = *a;
@@ -707,30 +706,26 @@ pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
                         address += n;
                     }
                     Directive::Db(b) => {
-                        write_byte(&mut banks, current_bank, &mut address, line_number, *b)?;
+                        write_byte(banks.as_mut(), current_bank, prg_banks, chr_banks, &mut address, line_number, *b)?;
                     }
                     Directive::Inesprg(n) => {
-                        if banks.is_empty() {
-                            prg_banks = Some(*n);
-                            for _ in 0..*n {
-                                banks.push(Bank {
-                                    data: vec![0; 4000],
-                                });
-                            }
+                        if prg_banks.is_some() {
+                            return Err(err!(".inesprg is already specified", line_number));
                         } else {
-                            return Err(err!("have already specified banks!", line_number));
+                            prg_banks = Some(*n);
+                            if let Some(c_n) = chr_banks {
+                                banks = Some(create_banks(*n, c_n));
+                            }
                         }
                     }
                     Directive::Ineschr(n) => {
-                        if !banks.is_empty() {
-                            chr_banks = Some(*n);
-                            for _ in 0..*n {
-                                banks.push(Bank {
-                                    data: vec![0; 4000],
-                                });
-                            }
+                        if chr_banks.is_some() {
+                            return Err(err!(".ineschr is already specified", line_number));
                         } else {
-                            return Err(err!("have to specify .inesprg first!", line_number));
+                            chr_banks = Some(*n);
+                            if let Some(p_n) = prg_banks {
+                                banks = Some(create_banks(p_n, *n));
+                            }
                         }
                     }
                     Directive::Inesmap(n) => {
@@ -748,8 +743,10 @@ pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
                          }| { op == opcode && a == addressing_mode },
                     ) {
                         write_byte(
-                            &mut banks,
+                            banks.as_mut(),
                             current_bank,
+                            prg_banks,
+                            chr_banks,
                             &mut address,
                             line_number,
                             index as u8,
@@ -758,8 +755,10 @@ pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
                             Operand::No => 1,
                             Operand::U8(b) => {
                                 write_byte(
-                                    &mut banks,
+                                    banks.as_mut(),
                                     current_bank,
+                                    prg_banks,
+                                    chr_banks,
                                     &mut address,
                                     line_number,
                                     *b,
@@ -769,15 +768,19 @@ pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
                             Operand::U16(bs) => {
                                 let [lo, hi] = bs.to_le_bytes();
                                 write_byte(
-                                    &mut banks,
+                                    banks.as_mut(),
                                     current_bank,
+                                    prg_banks,
+                                    chr_banks,
                                     &mut address,
                                     line_number,
                                     lo,
                                 )?;
                                 write_byte(
-                                    &mut banks,
+                                    banks.as_mut(),
                                     current_bank,
+                                    prg_banks,
+                                    chr_banks,
                                     &mut address,
                                     line_number,
                                     hi,
@@ -823,8 +826,8 @@ pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
     {
         let value = labels.get(&label).ok_or(err!("label not declared!", 0))?;
         let [lo, hi] = value.to_le_bytes();
-        write_byte(&mut banks, bank, &mut address, line_number, lo)?;
-        write_byte(&mut banks, bank, &mut address, line_number, hi)?;
+        write_byte(banks.as_mut(), bank, prg_banks, chr_banks, &mut address, line_number, lo)?;
+        write_byte(banks.as_mut(), bank, prg_banks, chr_banks, &mut address, line_number, hi)?;
     }
 
     Ok(Ines {
@@ -832,7 +835,7 @@ pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
         chr_rom_size: chr_banks.ok_or(err!("need to specify .ineschr", 0))?,
         mirroring: mirroring.ok_or(err!("need to specify .inesmir", 0))?,
         mapper: mapper.ok_or(err!("need to specify .inesmap", 0))?,
-        banks,
+        banks: banks.ok_or(err!("all header information needs to be specified", 0))?,
         labels,
     })
 }
