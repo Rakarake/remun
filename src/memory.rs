@@ -10,7 +10,7 @@
 //
 //pub struct RAM<const N: usize> {
 //    pub range: Range,
-//    pub memory: [u8; N],  
+//    pub memory: [u8; N],
 //}
 //
 //impl<const N: usize> Device for RAM<N> {
@@ -27,7 +27,7 @@
 //
 //pub struct ROM<const N: usize> {
 //    pub range: Range,
-//    pub memory: [u8; N],  
+//    pub memory: [u8; N],
 //}
 //
 //impl<const N: usize> Device for ROM<N> {

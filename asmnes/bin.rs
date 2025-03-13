@@ -13,4 +13,3 @@ fn main() -> Result<(), AsmnesError> {
     //println!("Logical output: {:?}", logical_output);
     Ok(())
 }
-

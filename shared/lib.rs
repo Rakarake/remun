@@ -1,7 +1,7 @@
-use strum::IntoEnumIterator;
-use Opcode::*;
 use AddressingMode::*;
+use Opcode::*;
 use std::{fmt, str::FromStr};
+use strum::IntoEnumIterator;
 
 /// `0`: inclusive, `1`: exclusive
 #[derive(Clone, Copy, Debug)]
@@ -18,7 +18,6 @@ impl fmt::Display for Range {
     }
 }
 
-///
 /// Addressing modes
 #[allow(non_snake_case)]
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -35,9 +34,9 @@ pub enum AddressingMode {
     /// $LOHI,X
     ABS_X,
     /// $LOHI,Y
-    ABS_Y, 
+    ABS_Y,
     /// ($LOHI)
-    IND,   
+    IND,
     /// ($LO,X)
     X_IND,
     /// ($LO),Y
@@ -54,19 +53,19 @@ pub enum AddressingMode {
 
 pub mod flags {
     /// Negative flag: is bit7 1?
-    pub const N: u8 = 1<<7;
+    pub const N: u8 = 1 << 7;
     /// Overflow
-    pub const V: u8 = 1<<6;
+    pub const V: u8 = 1 << 6;
     //pub const 1
     //pub const b
     /// Decimal mode (unused)
-    pub const D: u8 = 1<<3;
+    pub const D: u8 = 1 << 3;
     /// Interrupt inhibit: disables maskable interrupts
-    pub const I: u8 = 1<<2;
+    pub const I: u8 = 1 << 2;
     /// Zero: is the reuslt 0
-    pub const Z: u8 = 1<<1;
+    pub const Z: u8 = 1 << 1;
     /// Carry: does add operation carry over?
-    pub const C: u8 = 1<<0;
+    pub const C: u8 = 1 << 0;
 }
 
 impl AddressingMode {
@@ -94,9 +93,22 @@ impl AddressingMode {
 impl FromStr for Opcode {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        CODEPOINTS.iter().find_map(|Codepoint { opcode, addressing_mode: _ }|
-            if format!("{}", opcode) == s {Some(opcode)} else {None})
-        .cloned().ok_or(())
+        CODEPOINTS
+            .iter()
+            .find_map(
+                |Codepoint {
+                     opcode,
+                     addressing_mode: _,
+                 }| {
+                    if format!("{}", opcode) == s {
+                        Some(opcode)
+                    } else {
+                        None
+                    }
+                },
+            )
+            .cloned()
+            .ok_or(())
     }
 }
 
@@ -190,13 +202,22 @@ pub fn opcode_iter() -> OpcodeIter {
 }
 
 pub fn opcode_addressing_modes(o: &Opcode) -> Vec<AddressingMode> {
-    CODEPOINTS.iter().filter_map(|Codepoint { opcode, addressing_mode }| {
-        if *o == *opcode {
-            Some(addressing_mode)
-        } else {
-            None
-        }
-    }).cloned().collect()
+    CODEPOINTS
+        .iter()
+        .filter_map(
+            |Codepoint {
+                 opcode,
+                 addressing_mode,
+             }| {
+                if *o == *opcode {
+                    Some(addressing_mode)
+                } else {
+                    None
+                }
+            },
+        )
+        .cloned()
+        .collect()
 }
 
 // Instructions
@@ -232,4 +253,3 @@ pub const CODEPOINTS: [Codepoint; 256] = tabalize! [
     CPX,IMM  ; SBC,X_IND ; NOP,IMM ; ISC,X_IND ; CPX,ZPG   ; SBC,ZPG   ; INC,ZPG   ; ISC,ZPG   ; INX,IMPL ; SBC,IMM   ; NOP,IMPL ; USB, IMM  ; CPX,ABS   ; SBC,ABS   ; INC,ABS   ; ISC,ABS   ;
     BEQ,REL  ; SBC,IND_Y ; JAM,J   ; ISC,IND_Y ; NOP,ZPG_X ; SBC,ZPG_X ; INC,ZPG_X ; ISC,ZPG_X ; SED,IMPL ; SBC,ABS_Y ; NOP,IMPL ; ISC,ABS_Y ; NOP,ABS_X ; SBC,ABS_X ; INC,ABS_X ; ISC,ABS_X ;
 ];
-

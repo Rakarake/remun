@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test_general {
-    use asmnes::AsmnesOutput;
     use asmnes::AsmnesError;
+    use asmnes::AsmnesOutput;
     use remun::State;
     /// Helper to run a simple program.
     fn run_program(n_instructions: u64, program: &str) -> Result<State, AsmnesError> {

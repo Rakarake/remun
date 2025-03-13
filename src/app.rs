@@ -3,12 +3,12 @@
 
 use asmnes::AsmnesError;
 use asmnes::AsmnesOutput;
-use shared::Opcode::*;
-use shared::AddressingMode::*;
-use asmnes::Operand::*;
 use asmnes::Directive;
-use remun::State;
+use asmnes::Operand::*;
 use eframe::egui;
+use remun::State;
+use shared::AddressingMode::*;
+use shared::Opcode::*;
 
 // TODO make asmnes program struct, takes in ines or (prg, debug, char)? (no, depends on mappers)
 // new_form_regions(regions, debug)
@@ -64,4 +64,3 @@ impl eframe::App for MyApp {
         });
     }
 }
-

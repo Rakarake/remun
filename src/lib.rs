@@ -1,25 +1,25 @@
-pub mod opcodes;
 pub mod addressing_modes;
 pub mod memory;
+pub mod opcodes;
 
 use std::usize;
 
-use shared::Opcode;
 use shared::AddressingMode;
-use shared::Codepoint;
 use shared::CODEPOINTS;
+use shared::Codepoint;
+use shared::Opcode;
 use shared::Range;
 
 /// The state of the NES, registers, all devices mapped to memory-regions
 pub struct State {
     /// Program counter
-    pub pc: u16,            
+    pub pc: u16,
     /// Accumulator register
-    pub a: u8,              
+    pub a: u8,
     /// X register
-    pub x: u8,              
+    pub x: u8,
     /// Y register
-    pub y: u8,              
+    pub y: u8,
     /// Status register: NV-BDIZC
     /// N  Negative
     /// V  Overflow
@@ -29,11 +29,11 @@ pub struct State {
     /// I  Interrupt (IRQ disable)
     /// Z  Zero
     /// C  Carry
-    pub sr: u8,             
+    pub sr: u8,
     /// Stack pointer
-    pub sp: u8,             
+    pub sp: u8,
     /// Number of cycles that have passed
-    pub cycles: u64,        
+    pub cycles: u64,
     /// The devices
     pub memory: Vec<MemoryMap>,
 }
@@ -75,13 +75,11 @@ impl State {
             memory: vec![
                 // built in ram
                 MemoryMap {
-                    memory_regions: vec![
-                        MemoryRegion {
-                            address_space: AddressSpace::CPU,
-                            range: Range(0x0000, 0x0800),
-                        },
-                    ],
-                    device: Device::RAM(vec![0 ; 0x0800]),
+                    memory_regions: vec![MemoryRegion {
+                        address_space: AddressSpace::CPU,
+                        range: Range(0x0000, 0x0800),
+                    }],
+                    device: Device::RAM(vec![0; 0x0800]),
                 },
                 // prg
                 MemoryMap {
@@ -100,19 +98,17 @@ impl State {
                 },
                 // chr
                 MemoryMap {
-                    memory_regions: vec![
-                        MemoryRegion {
-                            address_space: AddressSpace::PPU,
-                            // TODO when working with the ppu
-                            range: Range(0x0000, 0x0000),
-                        },
-                    ],
+                    memory_regions: vec![MemoryRegion {
+                        address_space: AddressSpace::PPU,
+                        // TODO when working with the ppu
+                        range: Range(0x0000, 0x0000),
+                    }],
                     device: Device::ROM(chr),
                 },
             ],
         }
     }
-    
+
     pub fn set_flag(&mut self, flag: u8, value: bool) {
         if value {
             self.sr |= flag;
@@ -127,7 +123,10 @@ impl State {
 
     pub fn run_one_instruction(&mut self) {
         let instr = self.read(self.pc);
-        let Codepoint { opcode, addressing_mode } = CODEPOINTS[instr as usize].clone();
+        let Codepoint {
+            opcode,
+            addressing_mode,
+        } = CODEPOINTS[instr as usize].clone();
         let memory_target = addressing_modes::run(addressing_mode, self);
         opcodes::run(opcode, self, memory_target);
     }
@@ -139,7 +138,8 @@ impl State {
     }
 
     pub fn print_state(&self) {
-        println!("\
+        println!(
+            "\
 pc: {:#06X}
 a: {:#06X}
 x: {:#06X}
@@ -147,16 +147,22 @@ y: {:#06X}
 sr: {:#06X}
 sp: {:#06X}
 cycles: {}\
-", self.pc, self.a, self.x, self.y, self.sr, self.sp, self.cycles);
+",
+            self.pc, self.a, self.x, self.y, self.sr, self.sp, self.cycles
+        );
     }
 
     /// Helper function to get the device and the range
-    fn try_address(&mut self, address_space: AddressSpace, address: u16) -> Option<(&mut Device, Range)> {
+    fn try_address(
+        &mut self,
+        address_space: AddressSpace,
+        address: u16,
+    ) -> Option<(&mut Device, Range)> {
         self.memory.iter_mut().find_map(|m| {
-            m.memory_regions.iter().find(|mr|
-                mr.address_space == address_space &&
-                mr.range.contains(address)
-            ).map(|mr| (&mut m.device, mr.range))
+            m.memory_regions
+                .iter()
+                .find(|mr| mr.address_space == address_space && mr.range.contains(address))
+                .map(|mr| (&mut m.device, mr.range))
         })
     }
     pub fn read(&mut self, address: u16) -> u8 {
@@ -165,7 +171,7 @@ cycles: {}\
             match d {
                 Device::RAM(bytes) => {
                     return bytes[address as usize - r.0 as usize];
-                },
+                }
                 Device::ROM(bytes) => {
                     let index = address as usize - r.0 as usize;
                     // This means supplied ROM does not have to be filled
@@ -174,7 +180,7 @@ cycles: {}\
                     } else {
                         return 0;
                     }
-                },
+                }
             }
         }
         return 0;
@@ -185,8 +191,8 @@ cycles: {}\
             match d {
                 Device::RAM(bytes) => {
                     bytes[address as usize - r.0 as usize] = value;
-                },
-                Device::ROM(bytes) => { },
+                }
+                Device::ROM(bytes) => {}
             }
         }
     }
@@ -200,4 +206,3 @@ pub enum MemoryTarget {
     Accumulator,
     Impl,
 }
-
