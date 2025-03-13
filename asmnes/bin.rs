@@ -1,4 +1,6 @@
 use asmnes::*;
+use asmnes::lexer::lex;
+use asmnes::parser::parse;
 
 const SIMPLE: &str = include_str!("../asmexamples/simple.asm");
 
