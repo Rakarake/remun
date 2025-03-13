@@ -3,11 +3,11 @@
 use shared::AddressingMode;
 use shared::CODEPOINTS;
 use shared::Codepoint;
+use shared::Ines;
 /// For now, only logical assemble
 use shared::Opcode;
 use shared::Range;
 use shared::opcode_addressing_modes;
-use shared::Ines;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs;
@@ -219,14 +219,20 @@ pub fn lex(program: &str) -> Result<Vec<DToken>, AsmnesError> {
     let mut line: usize = 1;
     let mut state: LexState = LexState::Awaiting;
     let mut acc: String = String::new();
+    /// Helper to reduce code.
+    macro_rules! delimiter_then_push {
+        ($token:expr) => {{
+            delimiter(&mut state, line, &mut output, &mut acc)?;
+            output.push(DToken {
+                token: $token,
+                line,
+            });
+        }};
+    }
     for c in program.chars() {
         match c {
             '\n' => {
-                delimiter(&mut state, line, &mut output, &mut acc)?;
-                output.push(DToken {
-                    token: Token::Newline,
-                    line,
-                });
+                delimiter_then_push!(Token::Newline);
                 line += 1;
                 // After commnet, start reading again
                 state = LexState::Awaiting;
@@ -235,47 +241,13 @@ pub fn lex(program: &str) -> Result<Vec<DToken>, AsmnesError> {
                 delimiter(&mut state, line, &mut output, &mut acc)?;
                 state = LexState::ReadingDirective;
             }
-            '(' => {
-                delimiter(&mut state, line, &mut output, &mut acc)?;
-                output.push(DToken {
-                    token: Token::ParenOpen,
-                    line,
-                });
-            }
-            ')' => {
-                delimiter(&mut state, line, &mut output, &mut acc)?;
-                output.push(DToken {
-                    token: Token::ParenClose,
-                    line,
-                });
-            }
-            ',' => {
-                delimiter(&mut state, line, &mut output, &mut acc)?;
-                output.push(DToken {
-                    token: Token::Comma,
-                    line,
-                });
-            }
-            '#' => {
-                delimiter(&mut state, line, &mut output, &mut acc)?;
-                output.push(DToken {
-                    token: Token::Hash,
-                    line,
-                });
-            }
-            ':' => {
-                delimiter(&mut state, line, &mut output, &mut acc)?;
-                output.push(DToken {
-                    token: Token::Colon,
-                    line,
-                });
-            }
-            ' ' => {
-                delimiter(&mut state, line, &mut output, &mut acc)?;
-            }
-            '\t' => {
-                delimiter(&mut state, line, &mut output, &mut acc)?;
-            }
+            '(' => delimiter_then_push!(Token::ParenOpen),
+            ')' => delimiter_then_push!(Token::ParenClose),
+            ',' => delimiter_then_push!(Token::Comma),
+            '#' => delimiter_then_push!(Token::Hash),
+            ':' => delimiter_then_push!(Token::Colon),
+            ' ' => delimiter(&mut state, line, &mut output, &mut acc)?,
+            '\t' => delimiter(&mut state, line, &mut output, &mut acc)?,
             ';' => state = LexState::ReadingComment,
             '$' => state = LexState::ReadingHex,
             '%' => state = LexState::ReadingBin,
@@ -360,7 +332,10 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<DStatement>, AsmnesError> {
                     ($statement:expr) => {{
                         let t = parse_next(itr.next(), line)?;
                         let n = parse_num(t)?;
-                        output.push(DStatement { statement: Statement::Directive($statement(n)), line });
+                        output.push(DStatement {
+                            statement: Statement::Directive($statement(n)),
+                            line,
+                        });
                     }};
                 }
                 match d.as_str() {
@@ -373,7 +348,10 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<DStatement>, AsmnesError> {
                     "db" => {
                         let t = parse_next(itr.next(), line)?;
                         let n = parse_num(t)?;
-                        output.push(DStatement { statement: Statement::Directive(Directive::Db(parse_u8(n, line)?)), line });
+                        output.push(DStatement {
+                            statement: Statement::Directive(Directive::Db(parse_u8(n, line)?)),
+                            line,
+                        });
                     }
                     "ds" => directive_push_num!(Directive::Ds),
                     s => return Err(err!(format!("no such directive: '{}'", s), line)),
@@ -382,7 +360,10 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<DStatement>, AsmnesError> {
             Token::Ident(i) => {
                 macro_rules! instruction_push {
                     ($o:expr, $a:expr, $operand:expr) => {{
-                        output.push(DStatement { statement: Statement::Instruction(Instruction($o, $a, $operand)), line });
+                        output.push(DStatement {
+                            statement: Statement::Instruction(Instruction($o, $a, $operand)),
+                            line,
+                        });
                     }};
                 }
                 if let Some(DToken { token, line }) = itr.next() {
@@ -391,7 +372,10 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<DStatement>, AsmnesError> {
                     match token {
                         // Label
                         Token::Colon => {
-                            output.push(DStatement { statement: Statement::Label(i.clone()), line });
+                            output.push(DStatement {
+                                statement: Statement::Label(i.clone()),
+                                line,
+                            });
                         }
                         // Immediate mode
                         Token::Hash => {
@@ -476,15 +460,15 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<DStatement>, AsmnesError> {
                                     }
                                 } else {
                                     // non-x/y addressed
-                                    output.push(DStatement { line, statement: Statement::Instruction(Instruction(
+                                    instruction_push!(
                                         o,
                                         if zpg {
                                             AddressingMode::ZPG
                                         } else {
                                             AddressingMode::ABS
                                         },
-                                        operand,
-                                    ))});
+                                        operand
+                                    );
                                 }
                             }
                         }
@@ -529,11 +513,7 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<DStatement>, AsmnesError> {
                                         }
                                     } else {
                                         //  indirect
-                                        instruction_push!(
-                                            o,
-                                            AddressingMode::IND,
-                                            Operand::U16(n)
-                                        );
+                                        instruction_push!(o, AddressingMode::IND, Operand::U16(n));
                                     }
                                 }
                                 Token::Comma => {
@@ -563,31 +543,19 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<DStatement>, AsmnesError> {
                         Token::A => {
                             // Accumulator addr-mode
                             let o = parse_opcode(i, line)?;
-                            instruction_push!(
-                                o,
-                                AddressingMode::A,
-                                Operand::No
-                            );
+                            instruction_push!(o, AddressingMode::A, Operand::No);
                         }
                         Token::Newline => {
                             // Implied
                             already_found_newline = true;
                             let o = parse_opcode(i, line)?;
-                            instruction_push!(
-                                o,
-                                AddressingMode::IMPL,
-                                Operand::No
-                            );
+                            instruction_push!(o, AddressingMode::IMPL, Operand::No);
                         }
                         _ => return Err(err!("wrong token after ident", line)),
                     }
                 } else {
                     let o = parse_opcode(i, line)?;
-                    instruction_push!(
-                        o,
-                        AddressingMode::IMPL,
-                        Operand::No
-                    );
+                    instruction_push!(o, AddressingMode::IMPL, Operand::No);
                 }
             }
             Token::Newline => {
@@ -633,14 +601,17 @@ fn write_byte(
         return Err(err!(format!("bank {bank} does not exist"), line_number));
     }
     use std::cmp::min;
-    let offset = min(bank, inesprg) * 1024 * 16 + if bank > inesprg {(bank - inesprg) * 1024 * 8} else {0};
+    let offset = min(bank, inesprg) * 1024 * 16
+        + if bank > inesprg {
+            (bank - inesprg) * 1024 * 8
+        } else {
+            0
+        };
     let bank_address = (*address & 0b0001111111111111) as usize;
-    *banks
-        .get_mut(bank_address + offset as usize)
-        .ok_or(err!(
-            format!("internal assembler error, should not happen!"),
-            line_number
-        ))? = byte;
+    *banks.get_mut(bank_address + offset as usize).ok_or(err!(
+        format!("internal assembler error, should not happen!"),
+        line_number
+    ))? = byte;
     *address += 1;
     Ok(())
 }
@@ -649,9 +620,7 @@ fn create_banks(inesprg: u16, ineschr: u16) -> Vec<u8> {
     vec![0; inesprg as usize * 1024 * 16 + ineschr as usize * 1024 * 8]
 }
 
-// TODO IMPORTANT carry over metainfo about correct line numbers from parser, replace line_number
-// TODO make some usize to u16 for uniformity
-// TODO fix "line_number", "current_bank" naming
+// TODO fix "current_bank" naming
 // TODO abstract similar errors (i.g. write_byte and building the final struct)
 // TODO split code into modules
 /// Takes a high-level representation of the program and creates the final output
@@ -677,6 +646,20 @@ pub fn logical_assemble(program: &[DStatement]) -> Result<Ines, AsmnesError> {
     // first pass
     for DStatement { statement, line } in program {
         let line = *line;
+        /// Write a byte!
+        macro_rules! wb {
+            ($arg:expr) => {{
+              write_byte(
+                  banks.as_mut(),
+                  current_bank,
+                  inesprg,
+                  ineschr,
+                  &mut address,
+                  line,
+                  $arg,
+              )?;
+            }}
+        }
         match statement {
             Statement::Comment(_) => {}
             Statement::Label(l) => {
@@ -695,7 +678,7 @@ pub fn logical_assemble(program: &[DStatement]) -> Result<Ines, AsmnesError> {
                     address += n;
                 }
                 Directive::Db(b) => {
-                    write_byte(banks.as_mut(), current_bank, inesprg, ineschr, &mut address, line, *b)?;
+                    wb!(*b);
                 }
                 Directive::Inesprg(n) => {
                     if inesprg.is_some() {
@@ -731,49 +714,17 @@ pub fn logical_assemble(program: &[DStatement]) -> Result<Ines, AsmnesError> {
                          addressing_mode,
                      }| { op == opcode && a == addressing_mode },
                 ) {
-                    write_byte(
-                        banks.as_mut(),
-                        current_bank,
-                        inesprg,
-                        ineschr,
-                        &mut address,
-                        line,
-                        index as u8,
-                    )?;
+                    wb!(index as u8);
                     let byte_len = match operand {
                         Operand::No => 1,
                         Operand::U8(b) => {
-                            write_byte(
-                                banks.as_mut(),
-                                current_bank,
-                                inesprg,
-                                ineschr,
-                                &mut address,
-                                line,
-                                *b,
-                            )?;
+                            wb!(*b);
                             2
                         }
                         Operand::U16(bs) => {
                             let [lo, hi] = bs.to_le_bytes();
-                            write_byte(
-                                banks.as_mut(),
-                                current_bank,
-                                inesprg,
-                                ineschr,
-                                &mut address,
-                                line,
-                                lo,
-                            )?;
-                            write_byte(
-                                banks.as_mut(),
-                                current_bank,
-                                inesprg,
-                                ineschr,
-                                &mut address,
-                                line,
-                                hi,
-                            )?;
+                            wb!(lo);
+                            wb!(hi);
                             3
                         }
                         Operand::Label(l) => {
@@ -813,8 +764,24 @@ pub fn logical_assemble(program: &[DStatement]) -> Result<Ines, AsmnesError> {
     {
         let value = labels.get(&label).ok_or(err!("label not declared!", 0))?;
         let [lo, hi] = value.to_le_bytes();
-        write_byte(banks.as_mut(), bank, inesprg, ineschr, &mut address, line, lo)?;
-        write_byte(banks.as_mut(), bank, inesprg, ineschr, &mut address, line, hi)?;
+        write_byte(
+            banks.as_mut(),
+            bank,
+            inesprg,
+            ineschr,
+            &mut address,
+            line,
+            lo,
+        )?;
+        write_byte(
+            banks.as_mut(),
+            bank,
+            inesprg,
+            ineschr,
+            &mut address,
+            line,
+            hi,
+        )?;
     }
 
     Ok(Ines {
