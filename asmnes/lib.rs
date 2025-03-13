@@ -631,21 +631,21 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<Line>, AsmnesError> {
 fn write_byte(
     banks: Option<&mut Vec<u8>>,
     bank: Option<usize>,
-    prg_banks: Option<usize>,
-    chr_banks: Option<usize>,
+    inesprg: Option<usize>,
+    ineschr: Option<usize>,
     address: &mut u16,
     line_number: usize,
     byte: u8,
 ) -> Result<(), AsmnesError> {
     let bank = bank.ok_or(err!("must specify .bank", line_number))? as isize;
-    let prg_banks = prg_banks.ok_or(err!("must specify .inesprg", line_number))? as isize;
-    let chr_banks = chr_banks.ok_or(err!("must specify .ineschr", line_number))? as isize;
+    let inesprg = inesprg.ok_or(err!("must specify .inesprg", line_number))? as isize;
+    let ineschr = ineschr.ok_or(err!("must specify .ineschr", line_number))? as isize;
     let banks = banks.ok_or(err!("all header info needs to be present", line_number))?;
-    if bank >= prg_banks + chr_banks {
+    if bank >= inesprg + ineschr {
         return Err(err!(format!("bank {bank} does not exist"), line_number));
     }
     use std::cmp::min;
-    let offset = min(bank, prg_banks) * 1024 * 16 + if bank > prg_banks {(bank - prg_banks) * 1024 * 8} else {0};
+    let offset = min(bank, inesprg) * 1024 * 16 + if bank > inesprg {(bank - inesprg) * 1024 * 8} else {0};
     let bank_address = (*address & 0b0001111111111111) as usize;
     *banks
         .get_mut(bank_address + offset as usize)
@@ -654,7 +654,6 @@ fn write_byte(
             line_number
         ))? = byte;
     *address += 1;
-    // TODO maybe add an address overflow check?
     Ok(())
 }
 
@@ -662,7 +661,10 @@ fn create_banks(inesprg: usize, ineschr: usize) -> Vec<u8> {
     vec![0; inesprg * 1024 * 16 + ineschr * 1024 * 8]
 }
 
-// TODO fix inconsitent naming (use ineschr etc)
+// TODO IMPORTANT carry over metainfo about correct line numbers from parser, replace line_number
+// TODO fix "line_number", "current_bank" naming
+// TODO remove first pass unecessary scope
+// TODO abstract similar errors (i.g. write_byte and building the final struct)
 // TODO split code into modules
 /// Takes a high-level representation of the program and creates the final output
 /// (hopefully).
@@ -678,142 +680,140 @@ pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
     let mut unresolved_labels: Vec<UnresolvedLabel> = Vec::new();
     let mut mapper: Option<usize> = None;
     let mut mirroring: Option<usize> = None;
-    let mut prg_banks: Option<usize> = None;
-    let mut chr_banks: Option<usize> = None;
+    let mut inesprg: Option<usize> = None;
+    let mut ineschr: Option<usize> = None;
+
+    let mut address: u16 = 0;
+    let mut line_number: usize = 1;
+    let mut current_bank: Option<usize> = None;
 
     // first pass
-    {
-        let mut address: u16 = 0;
-        let mut line_number: usize = 1;
-        let mut current_bank: Option<usize> = None;
-
-        for line in program {
-            match line {
-                Line::Comment(_) => {}
-                Line::Label(l) => {
-                    if labels.insert(l.clone(), address).is_some() {
-                        return Err(err!("label already defined", line_number));
+    for line in program {
+        match line {
+            Line::Comment(_) => {}
+            Line::Label(l) => {
+                if labels.insert(l.clone(), address).is_some() {
+                    return Err(err!("label already defined", line_number));
+                }
+            }
+            Line::Directive(d) => match d {
+                Directive::Bank(b) => {
+                    current_bank = Some(*b);
+                }
+                Directive::Org(a) => {
+                    address = *a;
+                }
+                Directive::Ds(n) => {
+                    address += n;
+                }
+                Directive::Db(b) => {
+                    write_byte(banks.as_mut(), current_bank, inesprg, ineschr, &mut address, line_number, *b)?;
+                }
+                Directive::Inesprg(n) => {
+                    if inesprg.is_some() {
+                        return Err(err!(".inesprg is already specified", line_number));
+                    } else {
+                        inesprg = Some(*n);
+                        if let Some(c_n) = ineschr {
+                            banks = Some(create_banks(*n, c_n));
+                        }
                     }
                 }
-                Line::Directive(d) => match d {
-                    Directive::Bank(b) => {
-                        current_bank = Some(*b);
-                    }
-                    Directive::Org(a) => {
-                        address = *a;
-                    }
-                    Directive::Ds(n) => {
-                        address += n;
-                    }
-                    Directive::Db(b) => {
-                        write_byte(banks.as_mut(), current_bank, prg_banks, chr_banks, &mut address, line_number, *b)?;
-                    }
-                    Directive::Inesprg(n) => {
-                        if prg_banks.is_some() {
-                            return Err(err!(".inesprg is already specified", line_number));
-                        } else {
-                            prg_banks = Some(*n);
-                            if let Some(c_n) = chr_banks {
-                                banks = Some(create_banks(*n, c_n));
-                            }
+                Directive::Ineschr(n) => {
+                    if ineschr.is_some() {
+                        return Err(err!(".ineschr is already specified", line_number));
+                    } else {
+                        ineschr = Some(*n);
+                        if let Some(p_n) = inesprg {
+                            banks = Some(create_banks(p_n, *n));
                         }
                     }
-                    Directive::Ineschr(n) => {
-                        if chr_banks.is_some() {
-                            return Err(err!(".ineschr is already specified", line_number));
-                        } else {
-                            chr_banks = Some(*n);
-                            if let Some(p_n) = prg_banks {
-                                banks = Some(create_banks(p_n, *n));
-                            }
+                }
+                Directive::Inesmap(n) => {
+                    mapper = Some(*n);
+                }
+                Directive::Inesmir(n) => {
+                    mirroring = Some(*n);
+                }
+            },
+            Line::Instruction(Instruction(op, a, operand)) => {
+                if let Some(index) = CODEPOINTS.iter().position(
+                    |Codepoint {
+                         opcode,
+                         addressing_mode,
+                     }| { op == opcode && a == addressing_mode },
+                ) {
+                    write_byte(
+                        banks.as_mut(),
+                        current_bank,
+                        inesprg,
+                        ineschr,
+                        &mut address,
+                        line_number,
+                        index as u8,
+                    )?;
+                    let byte_len = match operand {
+                        Operand::No => 1,
+                        Operand::U8(b) => {
+                            write_byte(
+                                banks.as_mut(),
+                                current_bank,
+                                inesprg,
+                                ineschr,
+                                &mut address,
+                                line_number,
+                                *b,
+                            )?;
+                            2
                         }
-                    }
-                    Directive::Inesmap(n) => {
-                        mapper = Some(*n);
-                    }
-                    Directive::Inesmir(n) => {
-                        mirroring = Some(*n);
-                    }
-                },
-                Line::Instruction(Instruction(op, a, operand)) => {
-                    if let Some(index) = CODEPOINTS.iter().position(
-                        |Codepoint {
-                             opcode,
-                             addressing_mode,
-                         }| { op == opcode && a == addressing_mode },
-                    ) {
-                        write_byte(
-                            banks.as_mut(),
-                            current_bank,
-                            prg_banks,
-                            chr_banks,
-                            &mut address,
-                            line_number,
-                            index as u8,
-                        )?;
-                        let byte_len = match operand {
-                            Operand::No => 1,
-                            Operand::U8(b) => {
-                                write_byte(
-                                    banks.as_mut(),
-                                    current_bank,
-                                    prg_banks,
-                                    chr_banks,
-                                    &mut address,
-                                    line_number,
-                                    *b,
-                                )?;
-                                2
-                            }
-                            Operand::U16(bs) => {
-                                let [lo, hi] = bs.to_le_bytes();
-                                write_byte(
-                                    banks.as_mut(),
-                                    current_bank,
-                                    prg_banks,
-                                    chr_banks,
-                                    &mut address,
-                                    line_number,
-                                    lo,
-                                )?;
-                                write_byte(
-                                    banks.as_mut(),
-                                    current_bank,
-                                    prg_banks,
-                                    chr_banks,
-                                    &mut address,
-                                    line_number,
-                                    hi,
-                                )?;
-                                3
-                            }
-                            Operand::Label(l) => {
-                                unresolved_labels.push(UnresolvedLabel {
-                                    bank: current_bank,
-                                    address,
-                                    label: l.clone(),
-                                    line_number,
-                                });
-                                // skip over bytes in the meantime
-                                address += 2;
-                                3
-                            }
-                        };
-                        if byte_len != a.get_len() {
-                            return Err(err!(
-                                format!(
-                                    "instruction expected argument of {} bytes but got {} bytes",
-                                    a.get_len() - 1,
-                                    byte_len - 1
-                                ),
-                                line_number
-                            ));
+                        Operand::U16(bs) => {
+                            let [lo, hi] = bs.to_le_bytes();
+                            write_byte(
+                                banks.as_mut(),
+                                current_bank,
+                                inesprg,
+                                ineschr,
+                                &mut address,
+                                line_number,
+                                lo,
+                            )?;
+                            write_byte(
+                                banks.as_mut(),
+                                current_bank,
+                                inesprg,
+                                ineschr,
+                                &mut address,
+                                line_number,
+                                hi,
+                            )?;
+                            3
                         }
+                        Operand::Label(l) => {
+                            unresolved_labels.push(UnresolvedLabel {
+                                bank: current_bank,
+                                address,
+                                label: l.clone(),
+                                line_number,
+                            });
+                            // skip over bytes in the meantime
+                            address += 2;
+                            3
+                        }
+                    };
+                    if byte_len != a.get_len() {
+                        return Err(err!(
+                            format!(
+                                "instruction expected argument of {} bytes but got {} bytes",
+                                a.get_len() - 1,
+                                byte_len - 1
+                            ),
+                            line_number
+                        ));
                     }
                 }
             }
-            line_number += 1;
         }
+        line_number += 1;
     }
 
     // second pass: go over all unresolved labels and fill them in
@@ -826,13 +826,13 @@ pub fn logical_assemble(program: &[Line]) -> Result<Ines, AsmnesError> {
     {
         let value = labels.get(&label).ok_or(err!("label not declared!", 0))?;
         let [lo, hi] = value.to_le_bytes();
-        write_byte(banks.as_mut(), bank, prg_banks, chr_banks, &mut address, line_number, lo)?;
-        write_byte(banks.as_mut(), bank, prg_banks, chr_banks, &mut address, line_number, hi)?;
+        write_byte(banks.as_mut(), bank, inesprg, ineschr, &mut address, line_number, lo)?;
+        write_byte(banks.as_mut(), bank, inesprg, ineschr, &mut address, line_number, hi)?;
     }
 
     Ok(Ines {
-        prg_rom_size: prg_banks.ok_or(err!("need to specify .inesprg", 0))?,
-        chr_rom_size: chr_banks.ok_or(err!("need to specify .ineschr", 0))?,
+        inesprg: inesprg.ok_or(err!("need to specify .inesprg", 0))?,
+        ineschr: ineschr.ok_or(err!("need to specify .ineschr", 0))?,
         mirroring: mirroring.ok_or(err!("need to specify .inesmir", 0))?,
         mapper: mapper.ok_or(err!("need to specify .inesmap", 0))?,
         banks: banks.ok_or(err!("all header information needs to be specified", 0))?,

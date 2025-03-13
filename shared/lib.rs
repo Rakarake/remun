@@ -21,9 +21,9 @@ impl fmt::Display for Range {
 /// Representation of an iNES file (not NES 2.0 just yet :))
 pub struct Ines {
     /// Size of PRG ROM in 16KiB units.
-    pub prg_rom_size: usize,
+    pub inesprg: usize,
     /// Size of CHR ROM in 8KiB units.
-    pub chr_rom_size: usize,
+    pub ineschr: usize,
     /// Vertically mirrored (1), Horizontally mirrored (0).
     pub mirroring: usize,
     /// The iNES mapper index, does not fully describe the hardware.
