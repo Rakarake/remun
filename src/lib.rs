@@ -9,6 +9,7 @@ use shared::CODEPOINTS;
 use shared::Codepoint;
 use shared::Opcode;
 use shared::Range;
+use shared::Ines;
 
 /// The state of the NES, registers, all devices mapped to memory-regions
 pub struct State {
@@ -32,9 +33,11 @@ pub struct State {
     pub sr: u8,
     /// Stack pointer
     pub sp: u8,
-    /// Number of cycles that have passed
+    /// Number of cycles that have passed.
     pub cycles: u64,
-    /// The devices
+    /// The static cartridge information.
+    pub ines: Ines,
+    /// The dynamic memory mappings.
     pub memory: Vec<MemoryMap>,
 }
 
@@ -51,7 +54,8 @@ pub struct MemoryRegion {
 }
 pub enum Device {
     RAM(Vec<u8>),
-    ROM(Vec<u8>),
+    /// Bank index
+    ROM(usize),
 }
 /// There are separate address spaces, the CPU + some PPU ones
 /// https://www.nesdev.org/wiki/PPU
@@ -62,39 +66,101 @@ pub enum AddressSpace {
 }
 
 impl State {
-    /// prg: 16KiB, chr: 8KiB
-    pub fn new_nrom128(prg: Vec<u8>, chr: Vec<u8>) -> Self {
-        Self {
-            pc: 0xC000,
-            a: 0,
-            x: 0,
-            y: 0,
-            sr: 0,
-            sp: 0xFF,
-            cycles: 0,
-            memory: vec![
-                // built in ram
-                MemoryMap {
-                    memory_regions: vec![MemoryRegion {
-                        address_space: AddressSpace::CPU,
-                        range: Range(0x0000, 0x0800),
-                    }],
-                    device: Device::RAM(vec![0; 0x0800]),
-                },
-                // prg
+    pub fn new(ines: Ines) -> Self {
+        let pc = 0xc0000;
+        let x = 0;
+        let a = 0;
+        let y = 0;
+        let sr = 0;
+        let sp = 0xFF;
+        let cycles = 0;
+        let mut memory: Vec<MemoryMap> = Vec::new();
+        memory.push(
+            MemoryMap {
+                memory_regions: vec![MemoryRegion {
+                    address_space: AddressSpace::CPU,
+                    range: Range(0x0000, 0x07FF),
+                }],
+                device: Device::RAM(vec![0; 0x0800]),
+            },
+        );
+        if ines.inesprg == 1 {
+            memory.push(
                 MemoryMap {
                     memory_regions: vec![
                         MemoryRegion {
                             address_space: AddressSpace::CPU,
-                            range: Range(0x8000, 0xBFFF),
+                            range: Range(0x8000, 0x9FFF),
                         },
-                        // mirrored
+                        // Mirrored region
                         MemoryRegion {
                             address_space: AddressSpace::CPU,
-                            range: Range(0xC000, 0xFFFF),
+                            range: Range(0xC000, 0xDFFF),
                         },
                     ],
-                    device: Device::ROM(prg),
+                    device: Device::ROM(0),
+                }
+            );
+            memory.push(
+                MemoryMap {
+                    memory_regions: vec![
+                        MemoryRegion {
+                            address_space: AddressSpace::CPU,
+                            range: Range(0xA000, 0xBFFF),
+                        },
+                        // Mirrored region
+                        MemoryRegion {
+                            address_space: AddressSpace::CPU,
+                            range: Range(0xE000, 0xFFFF),
+                        },
+                    ],
+                    device: Device::ROM(1),
+                }
+            );
+        } else {
+            // The other 16KiB
+            memory.push(
+                MemoryMap {
+                    memory_regions: vec![
+                        MemoryRegion {
+                            address_space: AddressSpace::CPU,
+                            range: Range(0xC000, 0xDFFF),
+                        },
+                    ],
+                    device: Device::ROM(3),
+                }
+            );
+            memory.push(
+                MemoryMap {
+                    memory_regions: vec![
+                        MemoryRegion {
+                            address_space: AddressSpace::CPU,
+                            range: Range(0xE000, 0xFFFF),
+                        },
+                    ],
+                    device: Device::ROM(4),
+                }
+            );
+        }
+        Self {
+            pc,
+            a,
+            x,
+            y,
+            sr,
+            sp,
+            cycles,
+            ines,
+            memory: vec![
+                // prg bank 2
+                MemoryMap {
+                    memory_regions: vec![
+                        MemoryRegion {
+                            address_space: AddressSpace::CPU,
+                            range: Range(0xA000, 0xBFFF),
+                        },
+                    ],
+                    device: Device::ROM(1),
                 },
                 // chr
                 MemoryMap {
@@ -103,7 +169,7 @@ impl State {
                         // TODO when working with the ppu
                         range: Range(0x0000, 0x0000),
                     }],
-                    device: Device::ROM(chr),
+                    device: Device::ROM(2),
                 },
             ],
         }
@@ -172,10 +238,10 @@ cycles: {}\
                 Device::RAM(bytes) => {
                     return bytes[address as usize - r.0 as usize];
                 }
-                Device::ROM(bytes) => {
+                Device::ROM(i) => {
                     let index = address as usize - r.0 as usize;
                     // This means supplied ROM does not have to be filled
-                    if index < bytes.len() {
+                    if index < 1024 * 8 {
                         return bytes[index];
                     } else {
                         return 0;

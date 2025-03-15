@@ -2,7 +2,12 @@
 .inesmir 1
 .inesprg 1
 .ineschr 1
+
 .bank 0
+.bank 1
+.bank 2
+
+.org $A000
 
 ; All addressing modes!
 NOP           ; Implied
