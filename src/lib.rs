@@ -5,6 +5,7 @@ pub mod opcodes;
 use std::usize;
 
 use shared::AddressingMode;
+use shared::BANK_SIZE;
 use shared::CODEPOINTS;
 use shared::Codepoint;
 use shared::Opcode;
@@ -142,6 +143,15 @@ impl State {
                 }
             );
         }
+        // chr
+        memory.push(MemoryMap {
+            memory_regions: vec![MemoryRegion {
+                address_space: AddressSpace::PPU,
+                // TODO when working with the ppu
+                range: Range(0x0000, 0x0000),
+            }],
+            device: Device::ROM(if ines.inesprg == 1 {3} else {5}),
+        });
         Self {
             pc,
             a,
@@ -151,27 +161,7 @@ impl State {
             sp,
             cycles,
             ines,
-            memory: vec![
-                // prg bank 2
-                MemoryMap {
-                    memory_regions: vec![
-                        MemoryRegion {
-                            address_space: AddressSpace::CPU,
-                            range: Range(0xA000, 0xBFFF),
-                        },
-                    ],
-                    device: Device::ROM(1),
-                },
-                // chr
-                MemoryMap {
-                    memory_regions: vec![MemoryRegion {
-                        address_space: AddressSpace::PPU,
-                        // TODO when working with the ppu
-                        range: Range(0x0000, 0x0000),
-                    }],
-                    device: Device::ROM(2),
-                },
-            ],
+            memory,
         }
     }
 
@@ -218,22 +208,9 @@ cycles: {}\
         );
     }
 
-    /// Helper function to get the device and the range
-    fn try_address(
-        &mut self,
-        address_space: AddressSpace,
-        address: u16,
-    ) -> Option<(&mut Device, Range)> {
-        self.memory.iter_mut().find_map(|m| {
-            m.memory_regions
-                .iter()
-                .find(|mr| mr.address_space == address_space && mr.range.contains(address))
-                .map(|mr| (&mut m.device, mr.range))
-        })
-    }
     pub fn read(&mut self, address: u16) -> u8 {
         println!("read: {:#06X}", address);
-        if let Some((d, r)) = self.try_address(AddressSpace::CPU, address) {
+        if let Some((d, r)) = try_address(&mut self.memory, AddressSpace::CPU, address) {
             match d {
                 Device::RAM(bytes) => {
                     return bytes[address as usize - r.0 as usize];
@@ -241,8 +218,8 @@ cycles: {}\
                 Device::ROM(i) => {
                     let index = address as usize - r.0 as usize;
                     // This means supplied ROM does not have to be filled
-                    if index < 1024 * 8 {
-                        return bytes[index];
+                    if index < BANK_SIZE {
+                        return self.ines.banks[BANK_SIZE * *i]
                     } else {
                         return 0;
                     }
@@ -253,7 +230,7 @@ cycles: {}\
     }
     pub fn write(&mut self, address: u16, value: u8) {
         println!("write: {:#06X}", address);
-        if let Some((d, r)) = self.try_address(AddressSpace::CPU, address) {
+        if let Some((d, r)) = try_address(&mut self.memory, AddressSpace::CPU, address) {
             match d {
                 Device::RAM(bytes) => {
                     bytes[address as usize - r.0 as usize] = value;
@@ -262,6 +239,20 @@ cycles: {}\
             }
         }
     }
+}
+
+/// Helper function to get the device and the range
+fn try_address(
+    memory: &mut Vec<MemoryMap>,
+    address_space: AddressSpace,
+    address: u16,
+) -> Option<(&mut Device, Range)> {
+    memory.iter_mut().find_map(|m| {
+        m.memory_regions
+            .iter()
+            .find(|mr| mr.address_space == address_space && mr.range.contains(address))
+            .map(|mr| (&mut m.device, mr.range))
+    })
 }
 
 /// An addressing mode addresses memory, one of these.

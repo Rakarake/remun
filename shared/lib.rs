@@ -19,6 +19,14 @@ impl fmt::Display for Range {
     }
 }
 
+
+/// In number of bytes.
+/// Banks can have different meanings in different context,
+/// this is the minimal size of a ROM region that can
+/// be mapped (to my knowledge). This is the size that is used
+/// for the banks in the assembler.
+pub const BANK_SIZE: usize = 1024 * 8;
+
 /// Representation of an iNES file (not NES 2.0 just yet :))
 pub struct Ines {
     /// Size of PRG ROM in 16KiB units.
