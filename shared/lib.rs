@@ -51,10 +51,10 @@ pub enum InesError {
 }
 
 /// Error when parsing an INES file.
-#[derive(Debug)]
+#[derive(Debug, strum_macros::Display)]
 pub enum InesParseError {
     InvalidHeader,
-    FileTooLong,
+    FileInvalidLength,
 }
 
 impl From<io::Error> for InesError {
@@ -73,7 +73,14 @@ impl fmt::Display for InesError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "mums",
+            "{}", match self {
+                InesError::IO(e) => {
+                    format!("{}", e)
+                },
+                InesError::ParseError(e) => {
+                    format!("{}", e)
+                },
+            }
         )
     }
 }
@@ -87,12 +94,27 @@ impl Ines {
         let mut reader = BufReader::new(f);
         let mut header: [u8; 16] = [0; 16];
         reader.read_exact(&mut header)?;
-        if &header[0..4] == b"NES\x1a" {
-            return Err(InesError::ParseError(InesParseError::FileTooLong))
-        } else {
+        if &header[0..4] != b"NES\x1a" {
             return Err(InesError::ParseError(InesParseError::InvalidHeader))
         }
-        //let x = t.as_ref();
+        let inesprg = header[4] as u16;
+        let ineschr = header[5] as u16;
+        let mirroring = (header[6] & 1) as u16;
+        let mapper = (header[6] >> 4) as u16;
+        let mut banks = Vec::new();
+        let data_len = reader.read_to_end(&mut banks)?;
+        let expected_size = inesprg as usize * 1024 * 16 + ineschr as usize * 1024 * 8;
+        if data_len != expected_size {
+            return Err(InesError::ParseError(InesParseError::FileInvalidLength))
+        }
+        Ok(Ines {
+            inesprg,
+            ineschr,
+            mirroring,
+            mapper,
+            labels: HashMap::new(),
+            banks,
+        })
     }
 }
 
