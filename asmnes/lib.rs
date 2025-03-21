@@ -50,6 +50,8 @@ pub struct AsmnesError {
     asmnes_column: u32,
 }
 
+impl std::error::Error for AsmnesError {}
+
 impl fmt::Display for AsmnesError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(

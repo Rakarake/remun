@@ -2,7 +2,6 @@
 #![allow(rustdoc::missing_crate_level_docs)] // it's an example
 
 use asmnes::AsmnesError;
-use asmnes::AsmnesOutput;
 use asmnes::Directive;
 use asmnes::Operand::*;
 use eframe::egui;

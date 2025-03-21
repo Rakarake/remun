@@ -1,10 +1,12 @@
+use std::error::Error;
+
 use asmnes::*;
 use asmnes::lexer::lex;
 use asmnes::parser::parse;
 
 const SIMPLE: &str = include_str!("../asmexamples/simple.asm");
 
-fn main() -> Result<(), AsmnesError> {
+fn main() -> Result<(), Box<dyn Error>> {
     println!("hello!");
     //println!("{:?}", simple_assemble("hello").unwrap());
     let lex_output = lex(SIMPLE)?;

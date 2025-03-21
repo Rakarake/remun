@@ -1,6 +1,6 @@
 use AddressingMode::*;
 use Opcode::*;
-use std::{collections::HashMap, fmt, str::FromStr};
+use std::{collections::HashMap, error::Error, fmt, fs::File, io::{self, BufReader, Read}, path::Path, str::FromStr};
 use strum::IntoEnumIterator;
 
 /// Simple range struct for range checking.
@@ -41,6 +41,59 @@ pub struct Ines {
     pub banks: Vec<u8>,
     /// Debug information.
     pub labels: HashMap<String, u16>,
+}
+
+/// Error when reading an INES file.
+#[derive(Debug)]
+pub enum InesError {
+  ParseError(InesParseError),
+  IO(io::Error)
+}
+
+/// Error when parsing an INES file.
+#[derive(Debug)]
+pub enum InesParseError {
+    InvalidHeader,
+    FileTooLong,
+}
+
+impl From<io::Error> for InesError {
+    fn from(value: io::Error) -> Self {
+        InesError::IO(value)
+    }
+}
+
+impl From<InesParseError> for InesError {
+    fn from(value: InesParseError) -> Self {
+        InesError::ParseError(value)
+    }
+}
+
+impl fmt::Display for InesError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "mums",
+        )
+    }
+}
+
+impl std::error::Error for InesError {}
+
+impl Ines {
+    /// Reads INES file.
+    pub fn from_file<T: AsRef<Path>>(path: T) -> Result<Self, InesError> {
+        let f = File::open(path)?;
+        let mut reader = BufReader::new(f);
+        let mut header: [u8; 16] = [0; 16];
+        reader.read_exact(&mut header)?;
+        if &header[0..4] == b"NES\x1a" {
+            return Err(InesError::ParseError(InesParseError::FileTooLong))
+        } else {
+            return Err(InesError::ParseError(InesParseError::InvalidHeader))
+        }
+        //let x = t.as_ref();
+    }
 }
 
 /// Addressing modes

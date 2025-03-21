@@ -68,7 +68,7 @@ pub enum AddressSpace {
 
 impl State {
     pub fn new(ines: Ines) -> Self {
-        let pc = 0xc0000;
+        let pc = 0xc000;
         let x = 0;
         let a = 0;
         let y = 0;
