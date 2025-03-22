@@ -10,7 +10,6 @@ use shared::AddressingMode;
 use shared::CODEPOINTS;
 use shared::Codepoint;
 use shared::Ines;
-/// For now, only logical assemble
 use shared::Opcode;
 use std::collections::HashMap;
 use std::fmt;
@@ -36,6 +35,17 @@ pub fn assemble(program: &str) -> Result<Ines, AsmnesError> {
 
 pub fn assemble_from_file(path: &str) -> Result<Ines, AsmnesError> {
     assemble(&fs::read_to_string(path).map_err(|e| err!(format!("failed to load file: {e}"), 0))?)
+}
+
+/// Disassembles as many bytes as possible
+pub fn disassemble(data: &[u8]) -> Vec<Instruction> {
+    let mut output: Vec<Instruction> = Vec::new();
+    let mut pointer = data;
+    while let Some((instruction, skipped)) = Instruction::from_bytes(pointer) {
+        output.push(instruction);
+        pointer = &pointer[skipped..pointer.len()];
+    }
+    output
 }
 
 // TODO make a trhow! macro that prints the assembler line/column, and automates creating the error
