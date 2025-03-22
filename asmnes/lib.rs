@@ -5,6 +5,7 @@ pub mod parser;
 
 use lexer::lex;
 use parser::parse;
+use shared::opcode_addressing_modes;
 use shared::AddressingMode;
 use shared::CODEPOINTS;
 use shared::Codepoint;
@@ -71,6 +72,28 @@ impl fmt::Debug for AsmnesError {
 /// An instruction, nothing else
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Instruction(pub Opcode, pub AddressingMode, pub Operand);
+
+// TODO implement visualizing statement
+// TODO implement creating a statement from bytes (slice of at least two bytes?)
+impl Instruction {
+    /// Constructs Statement from 1,2 or 3 bytes, also returns
+    /// how many bytes were read.
+    pub fn from_bytes(bytes: &[u8]) -> Option<(Self, usize)> {
+        let mut itr = bytes.iter();
+        let first = *itr.next()?;
+        let opcode = Opcode::from(first);
+        let addressing_mode = AddressingMode::from(first);
+        let arity = addressing_mode.arity();
+        let operand = match arity {
+            0 => {Operand::No}
+            1 => {Operand::U8(*itr.next()?)}
+            2 => {Operand::U16(((*itr.next()? as u16) << 8) + *itr.next()? as u16)},
+            _ => panic!("internal error, impossible arity"),
+        };
+        Some((Instruction(opcode, addressing_mode, operand), arity + 1))
+    }
+}
+
 
 /// A possible line in the assembly
 #[derive(Debug, PartialEq, Eq, Clone)]

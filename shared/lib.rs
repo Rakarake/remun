@@ -151,6 +151,24 @@ pub enum AddressingMode {
     J,
 }
 
+impl From<u8> for AddressingMode {
+    fn from(value: u8) -> Self {
+        CODEPOINTS[value as usize].addressing_mode.clone()
+    }
+}
+
+impl AddressingMode {
+    pub fn arity(&self) -> usize {
+        use AddressingMode::*;
+        match self {
+            IMPL | A => 0,
+            IMM | ZPG | ZPG_X | ZPG_Y | REL | X_IND | IND_Y => 1,
+            ABS | ABS_X | ABS_Y | IND => 2,
+            J => unimplemented!("jam  not implemented"),
+        }
+    }
+}
+
 pub mod flags {
     /// Negative flag: is bit7 1?
     pub const N: u8 = 1 << 7;
@@ -296,6 +314,12 @@ pub enum Opcode {
     TAS,
     USB,
     JAM,
+}
+
+impl From<u8> for Opcode {
+    fn from(value: u8) -> Self {
+        CODEPOINTS[value as usize].opcode.clone()
+    }
 }
 
 pub fn opcode_iter() -> OpcodeIter {
