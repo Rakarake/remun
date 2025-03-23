@@ -102,6 +102,20 @@ impl Instruction {
     }
 }
 
+impl fmt::Display for Instruction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)?;
+        use AddressingMode::*;
+        match self.1 {
+            IMM => { write!(f, " #{}", self.2) }
+            A => { write!(f, " A") }
+            IND => { write!(f, " ({})", self.2) }
+            IND_Y => { write!(f, " ({}), Y", self.2) }
+            X_IND => { write!(f, " ({}, X)", self.2) }
+            _ => { write!(f, " {}", self.2) }
+        }
+    }
+}
 
 /// A possible line in the assembly
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -124,6 +138,26 @@ pub enum Operand {
     U8(u8),
     U16(u16),
     Label(String),
+}
+
+impl fmt::Display for Operand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // display numbers in hex by default
+        match self {
+            Operand::U8(n) => {
+                write!(f, "${n:02X}")
+            }
+            Operand::U16(n) => {
+                write!(f, "${n:04X}")
+            }
+            Operand::No => {
+                write!(f, "")
+            }
+            Operand::Label(l) => {
+                write!(f, "{l}")
+            }
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

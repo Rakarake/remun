@@ -160,11 +160,11 @@ impl From<u8> for AddressingMode {
 impl AddressingMode {
     pub fn arity(&self) -> usize {
         use AddressingMode::*;
+        // so, how many bytes does JAM instructions need, none? infinate?
         match self {
-            IMPL | A => 0,
+            IMPL | A | J => 0,
             IMM | ZPG | ZPG_X | ZPG_Y | REL | X_IND | IND_Y => 1,
             ABS | ABS_X | ABS_Y | IND => 2,
-            J => unimplemented!("jam  not implemented"),
         }
     }
 }
