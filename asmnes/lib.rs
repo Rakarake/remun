@@ -81,8 +81,6 @@ impl fmt::Debug for AsmnesError {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Instruction(pub Opcode, pub AddressingMode, pub Operand);
 
-// TODO implement visualizing statement
-// TODO implement creating a statement from bytes (slice of at least two bytes?)
 impl Instruction {
     /// Constructs Statement from 1,2 or 3 bytes, also returns
     /// how many bytes were read.
@@ -108,6 +106,7 @@ impl fmt::Display for Instruction {
         use AddressingMode::*;
         match self.1 {
             IMM => { write!(f, " #{}", self.2) }
+            IMPL => { write!(f, "") }
             A => { write!(f, " A") }
             IND => { write!(f, " ({})", self.2) }
             IND_Y => { write!(f, " ({}), Y", self.2) }
