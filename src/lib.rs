@@ -1,3 +1,4 @@
+#![feature(let_chains)]
 pub mod addressing_modes;
 pub mod memory;
 pub mod opcodes;

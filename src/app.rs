@@ -1,10 +1,9 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
-
 use asmnes::AsmnesError;
 use asmnes::Directive;
 use asmnes::Instruction;
 use asmnes::Operand::*;
 use eframe::egui;
+use eframe::egui::Slider;
 use remun::State;
 use shared::AddressingMode::*;
 use shared::Opcode::*;
@@ -46,11 +45,14 @@ struct MyApp {
     scroll: usize,
 }
 
-const NR_SHOWN_INSTRUCTIONS: usize = 0;
+const NR_SHOWN_INSTRUCTIONS: usize = 30;
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::SidePanel::left("side_bar").show(ctx, |ui| {
+            ui.add(Slider::new(&mut self.scroll, 0..=self.state.ines.banks.len()-1).step_by(1.0));
+            if ui.small_button("+").clicked() { self.scroll += 1; }
+            if ui.small_button("-").clicked() { self.scroll -= 1; }
             ui.toggle_value(&mut self.running, "Running");
             ui.label(format!("A: ${:02X}", self.state.a));
             ui.label(format!("X: ${:02X}", self.state.x));
@@ -58,10 +60,15 @@ impl eframe::App for MyApp {
             ui.label(format!("SR: ${:02X}", self.state.sr));
             ui.label(format!("SP: ${:02X}", self.state.sp));
             ui.label(format!("PC: ${:04X}", self.state.pc));
-            let mut ptr = &self.state.ines.banks[..];
-            while let Some((i, len)) = Instruction::from_bytes(ptr) {
+        });
+        egui::CentralPanel::default().show(ctx, |ui| {
+            let mut ptr = &self.state.ines.banks[self.scroll..];
+            let mut line_count: usize = 0;
+            while let Some((i, len)) = Instruction::from_bytes(ptr)
+                        && line_count < NR_SHOWN_INSTRUCTIONS {
                 ui.monospace(i.to_string());
                 ptr = &ptr[len..];
+                line_count += 1;
             }
                 //write!(f, "${n:04X}")
             //ui.image(egui::include_image!(

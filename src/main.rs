@@ -1,3 +1,4 @@
+#![feature(let_chains)]
 use std::error::Error;
 
 mod app;
