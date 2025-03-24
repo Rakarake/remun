@@ -1,8 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
-#![allow(rustdoc::missing_crate_level_docs)] // it's an example
 
 use asmnes::AsmnesError;
 use asmnes::Directive;
+use asmnes::Instruction;
 use asmnes::Operand::*;
 use eframe::egui;
 use remun::State;
@@ -18,15 +18,21 @@ pub fn run(state: State) -> eframe::Result {
         ..Default::default()
     };
     eframe::run_native(
-        "My egui App",
+        "Remnun debugger",
         options,
         Box::new(|cc| {
             // This gives us image support:
             egui_extras::install_image_loaders(&cc.egui_ctx);
+            let disassembly = asmnes::disassemble(&state.ines.banks).0.iter().fold(String::new(), |mut acc, i| {
+                acc.push_str(&format!("{i}\n"));
+                acc
+            });
+            let state = state;
             Ok(Box::new(MyApp {
                 state,
                 running: false,
                 speed: 1,
+                scroll: 0,
             }))
         }),
     )
@@ -37,13 +43,30 @@ struct MyApp {
     running: bool,
     /// Instructions per second.
     speed: u32,
+    scroll: usize,
 }
+
+const NR_SHOWN_INSTRUCTIONS: usize = 0;
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.toggle_value(&mut self.running, "Running");
-            ui.label(format!("running: {}", self.running));
+            ui.label(format!("A: ${:02X}", self.state.a));
+            ui.label(format!("X: ${:02X}", self.state.x));
+            ui.label(format!("Y: ${:02X}", self.state.y));
+            ui.label(format!("SR: ${:02X}", self.state.sr));
+            ui.label(format!("SP: ${:02X}", self.state.sp));
+            ui.label(format!("PC: ${:04X}", self.state.pc));
+            let mut ptr = &self.state.ines.banks[..];
+            while let Some((i, len)) = Instruction::from_bytes(ptr) {
+                ui.monospace(i.to_string());
+                ptr = &ptr[len..];
+            }
+                //write!(f, "${n:04X}")
+            //ui.image(egui::include_image!(
+            //    "../logo.png"
+            //));
             //ui.heading("My egui Application");
             //ui.horizontal(|ui| {
             //    let name_label = ui.label("Your name: ");
@@ -56,9 +79,6 @@ impl eframe::App for MyApp {
             //}
             //ui.label(format!("Hello '{}', age {}", self.name, self.age));
 
-            //ui.image(egui::include_image!(
-            //    "../logo.png"
-            //));
         });
     }
 }
