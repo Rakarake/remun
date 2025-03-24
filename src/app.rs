@@ -32,6 +32,7 @@ pub fn run(state: State) -> eframe::Result {
                 running: false,
                 speed: 1,
                 scroll: 0,
+                following_pc: false,
             }))
         }),
     )
@@ -43,6 +44,7 @@ struct MyApp {
     /// Instructions per second.
     speed: u32,
     scroll: usize,
+    following_pc: bool,
 }
 
 const NR_SHOWN_INSTRUCTIONS: usize = 30;
@@ -54,6 +56,11 @@ impl eframe::App for MyApp {
             if ui.small_button("+").clicked() { self.scroll += 1; }
             if ui.small_button("-").clicked() { self.scroll -= 1; }
             ui.toggle_value(&mut self.running, "Running");
+            ui.toggle_value(&mut self.following_pc, "Following PC");
+            if self.following_pc {
+                // TODO take other banks into consideration lol
+                self.scroll = (self.state.pc - 0xC000) as usize;
+            }
             ui.label(format!("A: ${:02X}", self.state.a));
             ui.label(format!("X: ${:02X}", self.state.x));
             ui.label(format!("Y: ${:02X}", self.state.y));
