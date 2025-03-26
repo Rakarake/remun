@@ -104,11 +104,13 @@ pub fn lex(program: &str) -> Result<Vec<DToken>, AsmnesError> {
     /// Helper to reduce code.
     macro_rules! delimiter_then_push {
         ($token:expr) => {{
-            delimiter(&mut state, line, &mut output, &mut acc)?;
-            output.push(DToken {
-                token: $token,
-                line,
-            });
+            if state != LexState::ReadingComment {
+                delimiter(&mut state, line, &mut output, &mut acc)?;
+                output.push(DToken {
+                    token: $token,
+                    line,
+                });
+            }
         }};
     }
     for c in program.chars() {
@@ -130,9 +132,9 @@ pub fn lex(program: &str) -> Result<Vec<DToken>, AsmnesError> {
             ':' => delimiter_then_push!(Token::Colon),
             ' ' => delimiter(&mut state, line, &mut output, &mut acc)?,
             '\t' => delimiter(&mut state, line, &mut output, &mut acc)?,
-            ';' => state = LexState::ReadingComment,
-            '$' => state = LexState::ReadingHex,
-            '%' => state = LexState::ReadingBin,
+            ';' => if state != LexState::ReadingComment { state = LexState::ReadingComment },
+            '$' => if state != LexState::ReadingComment {  state = LexState::ReadingHex },
+            '%' => if state != LexState::ReadingComment {  state = LexState::ReadingBin },
             _ => {
                 match state {
                     LexState::Awaiting => {

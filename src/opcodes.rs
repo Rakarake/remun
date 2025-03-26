@@ -12,6 +12,7 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
             let old = state.read(addr);
             match opcode {
                 // A + M + C -> A, C
+                NOP => {},
                 ADC => {
                     let arg1 = state.a;
                     let arg2 = old;

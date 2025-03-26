@@ -13,7 +13,7 @@
 ; All addressing modes!
 NOP           ; Implied
 LDA #12       ; Immediate
-BNE $12       ; Relative
+;BNE $12       ; Relative
 ROR A         ; A
 LDA $12       ; Zero Page
 LDA $12,X     ; Zero Page X indexed
