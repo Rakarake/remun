@@ -291,7 +291,7 @@ pub fn parse(program: Vec<DToken>) -> Result<Vec<DStatement>, AsmnesError> {
                             let o = parse_opcode(i, line)?;
                             instruction_push!(o, AddressingMode::IMPL, Operand::No);
                         }
-                        _ => return Err(err!("wrong token after ident", line)),
+                        t => return Err(err!(format!("wrong token after ident: {:?}", t), line)),
                     }
                 } else {
                     let o = parse_opcode(i, line)?;

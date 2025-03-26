@@ -116,7 +116,11 @@ pub fn lex(program: &str) -> Result<Vec<DToken>, AsmnesError> {
     for c in program.chars() {
         match c {
             '\n' => {
-                delimiter_then_push!(Token::Newline);
+                delimiter(&mut state, line, &mut output, &mut acc)?;
+                output.push(DToken {
+                    token: Token::Newline,
+                    line,
+                });
                 line += 1;
                 // After commnet, start reading again
                 state = LexState::Awaiting;
