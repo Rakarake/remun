@@ -11,6 +11,26 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
         Address(addr) => {
             let old = state.read(addr);
             match opcode {
+                // A + M + C -> A, C
+                ADC => {
+                    let arg1 = state.a;
+                    let arg2 = old;
+                    let old_c = state.get_flag(flags::C);
+
+                    // Get c/carry (unsigned overflow) and the result
+                    let (val, c) = arg1.overflowing_add(arg2);
+                    let (val, c_2) = val.overflowing_add(old_c as u8);
+
+                    // Get v/overflow (signed overflow)
+                    let (val_test, v) = (arg1 as i8).overflowing_add(arg2 as i8);
+                    let (_, v_2) = val_test.overflowing_add(old_c as i8);
+
+                    state.a = val;
+                    state.set_flag(flags::C, c | c_2);
+                    state.set_flag(flags::V, v | v_2);
+                    new_value(state, val);
+                }
+                CLC => { state.set_flag(flags::C, false); }
                 LDA => {
                     let val = old;
                     state.a = val;
@@ -48,7 +68,7 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
     }
 }
 
-/// Common flag operations for when updating some value
+/// Common flag operations for when updating some value..
 fn new_value(state: &mut State, val: u8) {
     state.set_flag(flags::Z, val == 0);
     state.set_flag(flags::N, val & (1 << 7) != 0);

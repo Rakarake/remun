@@ -218,7 +218,7 @@ fn write_byte(
     let inesprg = inesprg.ok_or(err!("must specify .inesprg", line_number))? as isize;
     let ineschr = ineschr.ok_or(err!("must specify .ineschr", line_number))? as isize;
     let banks = banks.ok_or(err!("all header info needs to be present", line_number))?;
-    if bank >= inesprg + ineschr {
+    if bank >= inesprg * 2 + ineschr {
         return Err(err!(format!("bank {bank} does not exist"), line_number));
     }
     use std::cmp::min;

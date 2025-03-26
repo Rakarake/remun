@@ -7,6 +7,7 @@ use eframe::egui::Slider;
 use remun::State;
 use shared::AddressingMode::*;
 use shared::Opcode::*;
+use rfd::FileDialog;
 
 // TODO make asmnes program struct, takes in ines or (prg, debug, char)? (no, depends on mappers)
 // new_form_regions(regions, debug)
@@ -22,10 +23,6 @@ pub fn run(state: State) -> eframe::Result {
         Box::new(|cc| {
             // This gives us image support:
             egui_extras::install_image_loaders(&cc.egui_ctx);
-            let disassembly = asmnes::disassemble(&state.ines.banks).0.iter().fold(String::new(), |mut acc, i| {
-                acc.push_str(&format!("{i}\n"));
-                acc
-            });
             let state = state;
             Ok(Box::new(MyApp {
                 state,
@@ -33,6 +30,7 @@ pub fn run(state: State) -> eframe::Result {
                 speed: 1,
                 scroll: 0,
                 following_pc: false,
+                file_path: "".to_string(),
             }))
         }),
     )
@@ -45,6 +43,8 @@ struct MyApp {
     speed: u32,
     scroll: usize,
     following_pc: bool,
+    /// Path to ROM/assembly file
+    file_path: String,
 }
 
 const NR_SHOWN_INSTRUCTIONS: usize = 30;
@@ -52,6 +52,19 @@ const NR_SHOWN_INSTRUCTIONS: usize = 30;
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::SidePanel::left("side_bar").show(ctx, |ui| {
+            if ui.button("Open ROM/assembly file").clicked() {
+                let files = FileDialog::new()
+                    .add_filter("text", &["txt", "rs"])
+                    .add_filter("rust", &["rs", "toml"])
+                    .set_directory("/")
+                    .pick_file();
+                println!("{:?}", files);
+            }
+            ui.text_edit_singleline(&mut self.file_path);
+            // TODO do both
+            if ui.button("Load File (.nes or .asm)").clicked() {
+                self.state.ines = asmnes::assemble_from_file(self.file_path.as_str()).unwrap();
+            }
             ui.add(Slider::new(&mut self.scroll, 0..=self.state.ines.banks.len()-1).step_by(1.0));
             if ui.small_button("+").clicked() { self.scroll += 1; }
             if ui.small_button("-").clicked() { self.scroll -= 1; }
