@@ -1,22 +1,25 @@
 #![feature(let_chains)]
-use std::{env, error::Error};
+use std::{env, error::Error, path::Path};
 
 mod app;
 
 pub fn main() -> Result<(), Box<dyn Error>> {
     pretty_env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
-    let ines = shared::Ines::from_file("rom.nes")?;
-    // Load file provided otherwise load default
-    // TODO make a nicer interface
-    let ines = if let Some(file) = env::args().skip(1).next() {
-        asmnes::assemble_from_file(&file)?
+    let ines = if let Some(file) = env::args().nth(1) {
+        let p = Path::new(&file);
+        if let Some(os_str) = p.extension() {
+            match os_str.to_str() {
+                Some("nes") => { shared::Ines::from_file(&file)? }
+                Some("asm") => { asmnes::assemble_from_file(&file)? }
+                _ => { panic!("wrong extension or werid format") }
+            }
+        } else {
+            panic!("file missing extension")
+        }
+
     } else {
-        shared::Ines::from_file("rom.nes")?
+        panic!("need file to run");
     };
-    //println!("inesprg: {:?}, ineschr: {:?}, inesmap: {:?}, banks: {:?}", ines.inesprg, ines.ineschr, ines.mapper, ines.banks);
-    //println!("disassembly:");
-    //let (s, _l) = asmnes::disassemble(&ines.banks);
-    //s.iter().for_each(|i| println!("{i}"));
     let state = remun::State::new(ines);
     app::run(state)?;
     Ok(())

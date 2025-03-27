@@ -30,7 +30,7 @@ pub fn run(state: State) -> eframe::Result {
                 speed: 1,
                 scroll: 0xC000,
                 following_pc: true,
-                file_path: "".to_string(),
+                //file_path: "".to_string(),
             }))
         }),
     )
@@ -43,8 +43,7 @@ struct MyApp {
     speed: u32,
     scroll: u16,
     following_pc: bool,
-    /// Path to ROM/assembly file
-    file_path: String,
+    //file_path: String,
 }
 
 const NR_SHOWN_INSTRUCTIONS: usize = 30;
@@ -60,11 +59,11 @@ impl eframe::App for MyApp {
                     .pick_file();
                 println!("{:?}", files);
             }
-            ui.text_edit_singleline(&mut self.file_path);
+            //ui.text_edit_singleline(&mut self.file_path);
             // TODO do both
-            if ui.button("Load File (.nes or .asm)").clicked() {
-                self.state = State::new(asmnes::assemble_from_file(self.file_path.as_str()).unwrap());
-            }
+            //if ui.button("Load File (.nes or .asm)").clicked() {
+            //    self.state = State::new(asmnes::assemble_from_file(self.file_path.as_str()).unwrap());
+            //}
             //ui.add(Slider::new(&mut self.scroll, 0..=self.state.ines.banks.len()-1).step_by(1.0));
             if ui.small_button("+").clicked() { self.scroll += 1; }
             if ui.small_button("-").clicked() { self.scroll -= 1; }
