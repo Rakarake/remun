@@ -9,10 +9,11 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
     use Opcode::*;
     match memory_target {
         Address(addr) => {
-            let old = state.read(addr, false);
             match opcode {
+                // Arithmetic Instructions
                 // A + M + C -> A, C
                 ADC => {
+                    let old = state.read(addr, false);
                     let arg1 = state.a;
                     let arg2 = old;
                     let old_c = state.get_flag(flags::C);
@@ -30,26 +31,58 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                     state.set_flag(flags::V, v | v_2);
                     new_value(state, val);
                 }
+                ROL => {
+                    let old = state.read(addr, false);
+                    // TODO use https://doc.rust-lang.org/stable/std/primitive.i32.html#method.rotate_left
+                    let (val, new_c) = old.overflowing_shl(1);
+                    let val = val | state.get_flag(flags::C) as u8;
+                    state.write(addr, val);
+                    state.set_flag(flags::C, new_c);
+                    new_value(state, val);
+                }
+                AND => {
+                    let old = state.read(addr, false);
+                    let val = state.a & old;
+                    state.a = val;
+                    new_value(state, val);
+                }
+                ASL => {
+                    let old = state.read(addr, false);
+                    let old_c = old & 0b10000000;
+                    let val = old << 1;
+                    state.write(addr, val);
+                    state.set_flag(flags::C, old_c != 0);
+                }
+
+                // Branch Instructions
+                JMP => {
+                    state.pc = addr;
+                }
+                BNE => {
+                    let old = state.read(addr, false);
+                    if !state.get_flag(flags::Z) {
+                        let val = state.pc.wrapping_add_signed(old as i16);
+                        state.pc = val;
+                    }
+                }
+
+                // Load Instructions
                 LDA => {
+                    let old = state.read(addr, false);
                     let val = old;
                     state.a = val;
                     new_value(state, val);
                 }
                 LDX => {
+                    let old = state.read(addr, false);
                     let val = old;
                     state.x = val;
                     new_value(state, val);
                 }
                 LDY => {
+                    let old = state.read(addr, false);
                     let val = old;
                     state.y = val;
-                    new_value(state, val);
-                }
-                ROL => {
-                    let (val, new_c) = old.overflowing_shl(1);
-                    let val = val | state.get_flag(flags::C) as u8;
-                    state.write(addr, val);
-                    state.set_flag(flags::C, new_c);
                     new_value(state, val);
                 }
                 STA => {

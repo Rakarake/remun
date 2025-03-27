@@ -6,6 +6,21 @@
 .bank 0
 .org $C000
 
+; Testing Opcodes 🕹️
+
+; AND
+LDA #2
+AND #%00000011
+
+;ASL
+
+; ADC
+LDA #12
+CLC
+ADC #3
+
+
+
 ; All addressing modes!
 NOP           ; Implied
 LDA #12       ; Immediate
@@ -20,9 +35,4 @@ LDA $1234     ; Absolute
 ;LDA ($1234)   ; Indirect
 ;LDA ($12,X)   ; Indirect X indexed
 ;LDA ($12),Y   ; Indirect Y indexed
-
-; Opcodes 🕹️
-LDA #12
-CLC
-ADC #3
 
