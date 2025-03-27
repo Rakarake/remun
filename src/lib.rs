@@ -179,12 +179,14 @@ impl State {
     }
 
     pub fn run_one_instruction(&mut self) {
+        println!("reading address: {}", self.pc);
         let instr = self.read(self.pc);
         let Codepoint {
             opcode,
             addressing_mode,
         } = CODEPOINTS[instr as usize].clone();
         let memory_target = addressing_modes::run(addressing_mode, self);
+        println!("hello!");
         opcodes::run(opcode, self, memory_target);
     }
 
@@ -220,7 +222,7 @@ cycles: {}\
                     let index = address as usize - r.0 as usize;
                     // This means supplied ROM does not have to be filled
                     if index < BANK_SIZE {
-                        return self.ines.banks[BANK_SIZE * *i]
+                        return self.ines.banks[BANK_SIZE * *i + index]
                     } else {
                         return 0;
                     }

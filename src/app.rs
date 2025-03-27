@@ -51,7 +51,7 @@ const NR_SHOWN_INSTRUCTIONS: usize = 30;
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::SidePanel::left("side_bar").show(ctx, |ui| {
+        egui::SidePanel::left("left_bar").show(ctx, |ui| {
             if ui.button("Open ROM/assembly file").clicked() {
                 let files = FileDialog::new()
                     .add_filter("text", &["txt", "rs"])

@@ -222,9 +222,9 @@ fn write_byte(
         return Err(err!(format!("bank {bank} does not exist"), line_number));
     }
     use std::cmp::min;
-    let offset = min(bank, inesprg) * 1024 * 16
-        + if bank > inesprg {
-            (bank - inesprg) * 1024 * 8
+    let offset = min(bank, inesprg * 2) * 1024 * 8
+        + if bank > inesprg * 2 {
+            (bank - inesprg * 2) * 1024 * 8
         } else {
             0
         };

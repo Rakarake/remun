@@ -5,6 +5,7 @@ use shared::flags;
 
 /// Expects pc to be at next instruction
 pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
+    println!("opcode: {opcode}");
     use crate::MemoryTarget::*;
     use Opcode::*;
     match memory_target {
@@ -12,7 +13,6 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
             let old = state.read(addr);
             match opcode {
                 // A + M + C -> A, C
-                NOP => {},
                 ADC => {
                     let arg1 = state.a;
                     let arg2 = old;
@@ -31,7 +31,6 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                     state.set_flag(flags::V, v | v_2);
                     new_value(state, val);
                 }
-                CLC => { state.set_flag(flags::C, false); }
                 LDA => {
                     let val = old;
                     state.a = val;
@@ -57,14 +56,17 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                 STA => {
                     state.write(addr, state.a);
                 }
-                _ => unimplemented!(),
+                o => unimplemented!("{o}"),
             }
         }
         Accumulator => match opcode {
-            _ => unimplemented!(),
+            _ => unimplemented!("opcode not implemented: {:?}", opcode),
         },
         Impl => match opcode {
-            _ => unimplemented!("nooo: {:?}", opcode),
+            NOP => {},
+            CLC => { state.set_flag(flags::C, false); }
+            SEI => { state.set_flag(flags::I, true); }
+            _ => unimplemented!("opcode not implemented: {:?}", opcode),
         },
     }
 }
