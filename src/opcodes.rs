@@ -10,7 +10,7 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
     use Opcode::*;
     match memory_target {
         Address(addr) => {
-            let old = state.read(addr);
+            let old = state.read(addr, false);
             match opcode {
                 // A + M + C -> A, C
                 ADC => {

@@ -25,72 +25,72 @@ pub fn run(addressing_mode: AddressingMode, state: &mut State) -> MemoryTarget {
         }
         ABS => {
             state.pc += 1;
-            let lo = state.read(state.pc);
+            let lo = state.read(state.pc, false);
             state.pc += 1;
-            let hi = state.read(state.pc);
+            let hi = state.read(state.pc, false);
             state.pc += 1;
             Address(lo as u16 + ((hi as u16) << 8))
         }
         ABS_X => {
             state.pc += 1;
-            let lo = state.read(state.pc);
+            let lo = state.read(state.pc, false);
             state.pc += 1;
             Address(lo as u16 + state.x as u16)
         }
         ABS_Y => {
             state.pc += 1;
-            let lo = state.read(state.pc);
+            let lo = state.read(state.pc, false);
             state.pc += 1;
             Address(lo as u16 + state.y as u16)
         }
         REL => {
             state.pc += 1;
-            let lo = state.read(state.pc);
+            let lo = state.read(state.pc, false);
             state.pc += 1;
             Address(state.pc + lo as u16)
         }
         ZPG => {
             state.pc += 1;
-            let lo = state.read(state.pc);
+            let lo = state.read(state.pc, false);
             state.pc += 1;
             Address(lo as u16)
         }
         ZPG_X => {
             state.pc += 1;
-            let lo = state.read(state.pc);
+            let lo = state.read(state.pc, false);
             state.pc += 1;
             Address(lo as u16 + state.x as u16)
         }
         ZPG_Y => {
             state.pc += 1;
-            let lo = state.read(state.pc);
+            let lo = state.read(state.pc, false);
             state.pc += 1;
             Address(lo as u16 + state.y as u16)
         }
         IND => {
             state.pc += 1;
-            let lo = state.read(state.pc);
+            let lo = state.read(state.pc, false);
             state.pc += 1;
-            let hi = state.read(state.pc);
+            let hi = state.read(state.pc, false);
             state.pc += 1;
             let pointer = lo as u16 + ((hi as u16) << 8);
-            Address(state.read(pointer) as u16 + ((state.read(pointer + 1) as u16) << 8))
+            Address(state.read(pointer, false) as u16 + ((state.read(pointer + 1, false) as u16) << 8))
         }
         X_IND => {
             state.pc += 1;
-            let lo = state.read(state.pc);
+            let lo = state.read(state.pc, false);
             state.pc += 1;
             let pointer = (lo as u16) + (state.x as u16);
-            Address(state.read(pointer) as u16 + ((state.read(pointer + 1) as u16) << 8))
+            Address(state.read(pointer, false) as u16 + ((state.read(pointer + 1, false) as u16) << 8))
         }
         IND_Y => {
             state.pc += 1;
-            let lo = state.read(state.pc);
+            let lo = state.read(state.pc, false);
             state.pc += 1;
             let pointer = lo as u16;
             Address(
-                state.read(pointer) as u16
-                    + ((state.read(pointer + 1) as u16) << 8)
+                state.read(pointer, false) as u16
+                    + ((state.read(pointer + 1, false) as u16) << 8)
                     + state.y as u16,
             )
         }

@@ -180,7 +180,7 @@ impl State {
 
     pub fn run_one_instruction(&mut self) {
         println!("reading address: {}", self.pc);
-        let instr = self.read(self.pc);
+        let instr = self.read(self.pc, false);
         let Codepoint {
             opcode,
             addressing_mode,
@@ -211,7 +211,8 @@ cycles: {}\
         );
     }
 
-    pub fn read(&mut self, address: u16) -> u8 {
+    /// If "read_only" is set, the read has no affect on the state of the system.
+    pub fn read(&mut self, address: u16, read_only: bool) -> u8 {
         println!("read: {:#06X}", address);
         if let Some((d, r)) = try_address(&mut self.memory, AddressSpace::CPU, address) {
             match d {
@@ -238,7 +239,7 @@ cycles: {}\
                 Device::RAM(bytes) => {
                     bytes[address as usize - r.0 as usize] = value;
                 }
-                Device::ROM(bytes) => {}
+                Device::ROM(_bytes) => {}
             }
         }
     }

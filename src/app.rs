@@ -89,7 +89,7 @@ impl eframe::App for MyApp {
             let mut line_count: usize = 0;
             while let Some((i, len)) = Instruction::from_bytes(ptr)
                         && line_count < NR_SHOWN_INSTRUCTIONS {
-                ui.monospace(i.to_string());
+                ui.monospace(format!("{}", i));
                 ptr = &ptr[len..];
                 line_count += 1;
             }
