@@ -28,8 +28,8 @@ pub fn run(state: State) -> eframe::Result {
                 state,
                 running: false,
                 speed: 1,
-                scroll: 0,
-                following_pc: false,
+                scroll: 0xC000,
+                following_pc: true,
                 file_path: "".to_string(),
             }))
         }),
@@ -41,7 +41,7 @@ struct MyApp {
     running: bool,
     /// Instructions per second.
     speed: u32,
-    scroll: usize,
+    scroll: u16,
     following_pc: bool,
     /// Path to ROM/assembly file
     file_path: String,
@@ -65,7 +65,7 @@ impl eframe::App for MyApp {
             if ui.button("Load File (.nes or .asm)").clicked() {
                 self.state = State::new(asmnes::assemble_from_file(self.file_path.as_str()).unwrap());
             }
-            ui.add(Slider::new(&mut self.scroll, 0..=self.state.ines.banks.len()-1).step_by(1.0));
+            //ui.add(Slider::new(&mut self.scroll, 0..=self.state.ines.banks.len()-1).step_by(1.0));
             if ui.small_button("+").clicked() { self.scroll += 1; }
             if ui.small_button("-").clicked() { self.scroll -= 1; }
             if ui.small_button("step").clicked() {
@@ -75,7 +75,7 @@ impl eframe::App for MyApp {
             ui.toggle_value(&mut self.following_pc, "Following PC");
             if self.following_pc {
                 // TODO take other banks into consideration lol
-                self.scroll = (self.state.pc - 0xC000) as usize;
+                self.scroll = self.state.pc;
             }
             ui.label(format!("A: ${:02X}", self.state.a));
             ui.label(format!("X: ${:02X}", self.state.x));
@@ -85,12 +85,16 @@ impl eframe::App for MyApp {
             ui.label(format!("PC: ${:04X}", self.state.pc));
         });
         egui::CentralPanel::default().show(ctx, |ui| {
-            let mut ptr = &self.state.ines.banks[self.scroll..];
+            //let mut ptr = &self.state.ines.banks[self.scroll..];
+            let mut addr = self.scroll;
             let mut line_count: usize = 0;
-            while let Some((i, len)) = Instruction::from_bytes(ptr)
+            let mut bs: Vec<u8> = vec![self.state.read(addr, true), self.state.read(addr + 1, true), self.state.read(addr + 2, true)];
+            while let Some((i, len)) = Instruction::from_bytes(&bs)
                         && line_count < NR_SHOWN_INSTRUCTIONS {
-                ui.monospace(format!("{}", i));
-                ptr = &ptr[len..];
+                bs.drain(0..len);
+                bs.append(&mut (0..len).map(|i| self.state.read(addr + i as u16, true)).collect());
+                ui.monospace(format!("{addr:04X}: {i}"));
+                addr += len as u16;
                 line_count += 1;
             }
                 //write!(f, "${n:04X}")

@@ -5,6 +5,7 @@ pub mod opcodes;
 
 use std::usize;
 
+use log::debug;
 use shared::AddressingMode;
 use shared::BANK_SIZE;
 use shared::CODEPOINTS;
@@ -179,14 +180,13 @@ impl State {
     }
 
     pub fn run_one_instruction(&mut self) {
-        println!("reading address: {}", self.pc);
         let instr = self.read(self.pc, false);
         let Codepoint {
             opcode,
             addressing_mode,
         } = CODEPOINTS[instr as usize].clone();
+        debug!("running {:?} {:?} at ${:04X}", opcode, addressing_mode, self.pc);
         let memory_target = addressing_modes::run(addressing_mode, self);
-        println!("hello!");
         opcodes::run(opcode, self, memory_target);
     }
 
@@ -213,7 +213,9 @@ cycles: {}\
 
     /// If "read_only" is set, the read has no affect on the state of the system.
     pub fn read(&mut self, address: u16, read_only: bool) -> u8 {
-        println!("read: {:#06X}", address);
+        if !read_only {
+            debug!("read: {:#06X}", address);
+        }
         if let Some((d, r)) = try_address(&mut self.memory, AddressSpace::CPU, address) {
             match d {
                 Device::RAM(bytes) => {
@@ -230,10 +232,10 @@ cycles: {}\
                 }
             }
         }
-        return 0;
+        0
     }
     pub fn write(&mut self, address: u16, value: u8) {
-        println!("write: {:#06X}", address);
+        debug!("write: {:#06X}", address);
         if let Some((d, r)) = try_address(&mut self.memory, AddressSpace::CPU, address) {
             match d {
                 Device::RAM(bytes) => {

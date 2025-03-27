@@ -5,7 +5,6 @@ use shared::flags;
 
 /// Expects pc to be at next instruction
 pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
-    println!("opcode: {opcode}");
     use crate::MemoryTarget::*;
     use Opcode::*;
     match memory_target {

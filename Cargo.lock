@@ -2596,6 +2596,7 @@ dependencies = [
  "asmnes",
  "eframe",
  "egui_extras",
+ "log",
  "pretty_env_logger",
  "rfd",
  "shared",
