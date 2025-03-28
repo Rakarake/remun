@@ -45,9 +45,9 @@ pub fn run(addressing_mode: AddressingMode, state: &mut State) -> MemoryTarget {
         }
         REL => {
             state.pc += 1;
-            let lo = state.read(state.pc, false);
+            let addr = state.pc;
             state.pc += 1;
-            Address(state.pc + lo as u16)
+            Address(addr)
         }
         ZPG => {
             state.pc += 1;

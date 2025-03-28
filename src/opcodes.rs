@@ -9,6 +9,15 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
     use Opcode::*;
     match memory_target {
         Address(addr) => {
+            macro_rules! branch {
+                ($cond:expr) => {{
+                    let old = state.read(addr, false);
+                    if $cond {
+                        let val = state.pc.wrapping_add_signed(old as i16);
+                        state.pc = val;
+                    }
+                }}
+            }
             match opcode {
                 // Arithmetic Instructions
                 // A + M + C -> A, C
@@ -54,17 +63,22 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                     state.set_flag(flags::C, old_c != 0);
                 }
 
-                // Branch Instructions
+                // Jump
                 JMP => {
                     state.pc = addr;
                 }
-                BNE => {
-                    let old = state.read(addr, false);
-                    if !state.get_flag(flags::Z) {
-                        let val = state.pc.wrapping_add_signed(old as i16);
-                        state.pc = val;
-                    }
-                }
+                // Branch Instructions
+                BNE => branch!(!state.get_flag(flags::Z)),
+                BEQ => branch!(state.get_flag(flags::Z)),
+
+                BPL => branch!(!state.get_flag(flags::N)),
+                BMI => branch!(state.get_flag(flags::N)),
+
+                BVC => branch!(!state.get_flag(flags::V)),
+                BVS => branch!(state.get_flag(flags::V)),
+
+                BCC => branch!(!state.get_flag(flags::C)),
+                BCS => branch!(state.get_flag(flags::C)),
 
                 // Load Instructions
                 LDA => {

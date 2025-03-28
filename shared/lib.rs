@@ -235,61 +235,117 @@ impl FromStr for Opcode {
 #[allow(non_snake_case)]
 #[derive(Debug, PartialEq, Eq, Clone, strum_macros::Display, strum_macros::EnumIter)]
 pub enum Opcode {
+    /// Add with carry
     ADC,
+    /// Logical And
     AND,
+    /// Arithmatic Shift Left
     ASL,
+    /// Branch on Carry Clear
     BCC,
+    /// Branch on Carry Set
     BCS,
+    /// Branch on Equals
     BEQ,
+    /// Test Bits
     BIT,
+    /// Branch on Minus
     BMI,
+    /// Branch on Not Equals
     BNE,
+    /// Branch on Plus
     BPL,
+    /// Break
     BRK,
+    /// Branch on Overflow Clear
     BVC,
+    /// Branch on Overflow Set
     BVS,
+    /// Clear Carry
     CLC,
+    /// Clear Decimal Mode
     CLD,
+    /// Clear Interrupt Disable
     CLI,
+    /// Clear Overflow
     CLV,
+    /// Compare with accumulator
     CMP,
+    /// Compare with X
     CPX,
+    /// Compare with Y
     CPY,
+    /// Decrement memory by one
     DEC,
+    /// Decrement X by one
     DEX,
+    /// Decrement Y by one
     DEY,
+    /// Exclusive-OR with accumulator
     EOR,
+    /// Increment memory by one
     INC,
+    /// Increment X by one
     INX,
+    /// Increment Y oy one
     INY,
+    /// Jump
     JMP,
+    /// Jump and save return address on the stack
     JSR,
+    /// Load Accumulator
     LDA,
+    /// Load X
     LDX,
+    /// Load Y
     LDY,
+    /// Shift one bit right
     LSR,
+    /// No Operation
     NOP,
+    /// Or memory with Accumulator
     ORA,
+    /// Push Accumulator on the stack
     PHA,
+    /// Push Status register to the stack
     PHP,
+    /// Pull Accumulator from stack
     PLA,
+    /// Pull Status register from the stack
     PLP,
+    /// Rotate left
     ROL,
+    /// Rotate right
     ROR,
+    /// Return from Interrupt
     RTI,
+    /// Return from Subroutine
     RTS,
+    /// Subtract from Accumulator with borrow (inverted carry)
     SBC,
+    /// Set Carry
     SEC,
+    /// Set Decimal
     SED,
+    /// Set Interrupt Disable
     SEI,
+    /// Store Accumulator
     STA,
+    /// Store X
     STX,
+    /// Store Y
     STY,
+    /// Transfer A to X
     TAX,
+    /// Transfer A to Y
     TAY,
+    /// Transfer Stack Pointer to X
     TSX,
+    // Transfer X to A
     TXA,
+    /// Transfer X to Stack pointer
     TXS,
+    /// Transfer Y to A
     TYA,
 
     // Illegal opcodes
