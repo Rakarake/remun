@@ -174,8 +174,9 @@ pub mod flags {
     pub const N: u8 = 1 << 7;
     /// Overflow
     pub const V: u8 = 1 << 6;
-    //pub const 1
-    //pub const b
+    // Bit 5 unused :(
+    /// Break
+    pub const B: u8 = 1 << 4;
     /// Decimal mode (unused)
     pub const D: u8 = 1 << 3;
     /// Interrupt inhibit: disables maskable interrupts

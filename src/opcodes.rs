@@ -3,6 +3,9 @@ use crate::State;
 use shared::Opcode;
 use shared::flags;
 
+// Thanks https://www.masswerk.at/6502/6502_instruction_set.html, made this
+// a plesant experience!
+
 /// Expects pc to be at next instruction
 pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
     use crate::MemoryTarget::*;
@@ -24,6 +27,11 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                     new_value(state, val);
                 }};
             }
+            macro_rules! store_register {
+                ($reg:expr) => {{
+                    state.write(addr, $reg);
+                }};
+            }
             macro_rules! shift {
                 ($right:expr, $rotate:expr) => {{
                     let old = state.read(addr, false);
@@ -35,33 +43,49 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                     new_value(state, val);
                 }};
             }
-            match opcode {
-                // Arithmetic Instructions
-                // A + M + C -> A, C
-                ADC => {
+            macro_rules! bitwise {
+                ($op:tt) => {{
+                    let val = state.a $op state.read(addr, false);
+                    state.a = val;
+                    new_value(state, val);
+                }};
+            }
+            macro_rules! addsub {
+                ($op:ident, $carry:expr) => {{
                     let arg1 = state.a;
                     let arg2 = state.read(addr, false);
-                    let old_c = state.get_flag(flags::C);
+                    let old_c = $carry;
 
                     // Get c/carry (unsigned overflow) and the result
-                    let (val, c) = arg1.overflowing_add(arg2);
-                    let (val, c_2) = val.overflowing_add(old_c as u8);
+                    let (val, c) = arg1.$op(arg2);
+                    let (val, c_2) = val.$op(old_c as u8);
 
                     // Get v/overflow (signed overflow)
-                    let (val_test, v) = (arg1 as i8).overflowing_add(arg2 as i8);
-                    let (_, v_2) = val_test.overflowing_add(old_c as i8);
+                    let (val_test, v) = (arg1 as i8).$op(arg2 as i8);
+                    let (_, v_2) = val_test.$op(old_c as i8);
 
                     state.a = val;
                     state.set_flag(flags::C, c | c_2);
                     state.set_flag(flags::V, v | v_2);
                     new_value(state, val);
-                }
-                AND => {
-                    let old = state.read(addr, false);
-                    let val = state.a & old;
-                    state.a = val;
+                }};
+            }
+            macro_rules! incdec {
+                ($by_what:tt) => {{
+                    let val = state.read(addr, false);
+                    state.write(addr, val.$by_what(1));
                     new_value(state, val);
-                }
+                }};
+            }
+            match opcode {
+                // Arithmetic Instructions
+                ADC => addsub!(overflowing_add, state.get_flag(flags::C)),
+                SBC => addsub!(overflowing_sub, !state.get_flag(flags::C)),
+
+                // Bitwise operations
+                AND => bitwise!(&),
+                ORA => bitwise!(|),
+                EOR => bitwise!(^),
 
                 // Shift operations
                 ROL => shift!(false, true),
@@ -93,22 +117,90 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                 LDY => load_register!(state.y),
 
                 // Store Instructions
-                STA => state.write(addr, state.a),
-                STX => state.write(addr, state.x),
-                STY => state.write(addr, state.y),
+                STA => store_register!(state.a),
+                STX => store_register!(state.x),
+                STY => store_register!(state.y),
+
+                // Increments / Decrements
+                DEC => incdec!(wrapping_sub),
+                INC => incdec!(wrapping_add),
 
                 o => unimplemented!("{o}"),
             }
         }
         Accumulator => match opcode {
+            // Shift Instructions
             _ => unimplemented!("opcode not implemented: {:?}", opcode),
         },
-        Impl => match opcode {
-            NOP => {},
-            CLC => { state.set_flag(flags::C, false); }
-            SEI => { state.set_flag(flags::I, true); }
-            _ => unimplemented!("opcode not implemented: {:?}", opcode),
-        },
+        Impl => {
+            macro_rules! set_flag {
+                ($flag:expr, $val:expr) => {{
+                    state.set_flag($flag, $val);
+                }};
+            }
+            macro_rules! transfer {
+                ($src:expr, $dst:expr) => {{
+                    let val = $src;
+                    $dst = val;
+                    new_value(state, val);
+                }};
+            }
+            macro_rules! push {
+                ($what:expr) => {{
+                    state.write(state.sp as u16 + 0x0100, $what);
+                    let (new_pos, _) = state.sp.overflowing_sub(1);
+                    state.sp = new_pos;
+                }};
+            }
+            macro_rules! pull {
+                ($what:expr) => {{
+                    let (new_pos, _) = state.sp.overflowing_add(1);
+                    state.sp = new_pos;
+                    $what = state.read(state.sp as u16 + 0x0100, false);
+                }};
+            }
+            macro_rules! incdecxy {
+                ($reg:expr, $by_what:tt) => {{
+                    let val = $reg.$by_what(1);
+                    $reg = val;
+                    new_value(state, val);
+                }};
+            }
+            match opcode {
+                // Stack Instructions
+                PHA => push!(state.a),
+                PHP => push!(state.sr | (1 << 5) | flags::B),
+                PLA => pull!(state.a),
+                PLP => pull!(state.sr),
+
+                // Transfer Instructions
+                TAX => transfer!(state.a, state.x),
+                TAY => transfer!(state.a, state.y),
+                TXA => transfer!(state.x, state.a),
+                TYA => transfer!(state.y, state.a),
+                TSX => transfer!(state.sp, state.x),
+                TXS => transfer!(state.x, state.sp),
+
+                // Flag instructions
+                CLC => set_flag!(flags::C, false),
+                SEC => set_flag!(flags::C, true),
+                CLD => set_flag!(flags::D, false),
+                SED => set_flag!(flags::D, true),
+                CLV => set_flag!(flags::V, false),
+                CLI => set_flag!(flags::I, false),
+                SEI => set_flag!(flags::I, true),
+
+
+                // Increments / Decrements
+                DEX => incdecxy!(state.x, wrapping_sub),
+                INX => incdecxy!(state.x, wrapping_add),
+                DEY => incdecxy!(state.y, wrapping_sub),
+                INY => incdecxy!(state.y, wrapping_add),
+
+                NOP => {},
+                _ => unimplemented!("opcode not implemented: {:?}", opcode),
+            }
+        }
     }
 }
 
