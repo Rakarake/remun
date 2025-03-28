@@ -11,20 +11,36 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
         Address(addr) => {
             macro_rules! branch {
                 ($cond:expr) => {{
-                    let old = state.read(addr, false);
                     if $cond {
-                        let val = state.pc.wrapping_add_signed(old as i16);
-                        state.pc = val;
+                        let old = state.read(addr, false);
+                        state.pc = state.pc.wrapping_add_signed(old as i16);
                     }
                 }}
+            }
+            macro_rules! load_register {
+                ($reg:expr) => {{
+                    let val = state.read(addr, false);
+                    $reg = val;
+                    new_value(state, val);
+                }};
+            }
+            macro_rules! shift {
+                ($right:expr, $rotate:expr) => {{
+                    let old = state.read(addr, false);
+                    let new_c = old & (1 << if $right {0} else {7});
+                    let val = if $right {(old >> 1)} else {(old << 1)}
+                        | if $rotate {(state.get_flag(flags::C) as u8) << if $right {7} else {0}} else {0};
+                    state.write(addr, val);
+                    state.set_flag(flags::C, new_c != 0);
+                    new_value(state, val);
+                }};
             }
             match opcode {
                 // Arithmetic Instructions
                 // A + M + C -> A, C
                 ADC => {
-                    let old = state.read(addr, false);
                     let arg1 = state.a;
-                    let arg2 = old;
+                    let arg2 = state.read(addr, false);
                     let old_c = state.get_flag(flags::C);
 
                     // Get c/carry (unsigned overflow) and the result
@@ -40,33 +56,24 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                     state.set_flag(flags::V, v | v_2);
                     new_value(state, val);
                 }
-                ROL => {
-                    let old = state.read(addr, false);
-                    // TODO use https://doc.rust-lang.org/stable/std/primitive.i32.html#method.rotate_left
-                    let (val, new_c) = old.overflowing_shl(1);
-                    let val = val | state.get_flag(flags::C) as u8;
-                    state.write(addr, val);
-                    state.set_flag(flags::C, new_c);
-                    new_value(state, val);
-                }
                 AND => {
                     let old = state.read(addr, false);
                     let val = state.a & old;
                     state.a = val;
                     new_value(state, val);
                 }
-                ASL => {
-                    let old = state.read(addr, false);
-                    let old_c = old & 0b10000000;
-                    let val = old << 1;
-                    state.write(addr, val);
-                    state.set_flag(flags::C, old_c != 0);
-                }
+
+                // Shift operations
+                ROL => shift!(false, true),
+                ROR => shift!(true, true),
+                ASL => shift!(false, false),
+                LSR => shift!(true, false),
 
                 // Jump
                 JMP => {
                     state.pc = addr;
                 }
+
                 // Branch Instructions
                 BNE => branch!(!state.get_flag(flags::Z)),
                 BEQ => branch!(state.get_flag(flags::Z)),
@@ -81,27 +88,15 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                 BCS => branch!(state.get_flag(flags::C)),
 
                 // Load Instructions
-                LDA => {
-                    let old = state.read(addr, false);
-                    let val = old;
-                    state.a = val;
-                    new_value(state, val);
-                }
-                LDX => {
-                    let old = state.read(addr, false);
-                    let val = old;
-                    state.x = val;
-                    new_value(state, val);
-                }
-                LDY => {
-                    let old = state.read(addr, false);
-                    let val = old;
-                    state.y = val;
-                    new_value(state, val);
-                }
-                STA => {
-                    state.write(addr, state.a);
-                }
+                LDA => load_register!(state.a),
+                LDX => load_register!(state.x),
+                LDY => load_register!(state.y),
+
+                // Store Instructions
+                STA => state.write(addr, state.a),
+                STX => state.write(addr, state.x),
+                STY => state.write(addr, state.y),
+
                 o => unimplemented!("{o}"),
             }
         }
