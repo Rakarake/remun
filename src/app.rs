@@ -12,7 +12,7 @@ use rfd::FileDialog;
 // TODO make asmnes program struct, takes in ines or (prg, debug, char)? (no, depends on mappers)
 // new_form_regions(regions, debug)
 
-pub fn run(state: State) -> eframe::Result {
+pub fn run(mut state: State) -> eframe::Result {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
         ..Default::default()
@@ -23,14 +23,15 @@ pub fn run(state: State) -> eframe::Result {
         Box::new(|cc| {
             // This gives us image support:
             egui_extras::install_image_loaders(&cc.egui_ctx);
-            let state = state;
+            let disassembly = asmnes::disassemble(&(0..=u16::MAX).map(|a| state.read(a, true)).collect::<Vec<u8>>()).0
+                .iter().map(|(a, i)| (*a as u16, i.clone())).collect();
             Ok(Box::new(MyApp {
                 state,
                 running: false,
                 speed: 1,
                 scroll: 0xC000,
                 following_pc: true,
-                //file_path: "".to_string(),
+                disassembly,
             }))
         }),
     )
@@ -43,7 +44,7 @@ struct MyApp {
     speed: u32,
     scroll: u16,
     following_pc: bool,
-    //file_path: String,
+    disassembly: Vec<(u16, Instruction)>,
 }
 
 const NR_SHOWN_INSTRUCTIONS: usize = 30;
@@ -98,32 +99,9 @@ impl eframe::App for MyApp {
             ui.label(format!("PC: ${:04X}", self.state.pc));
         });
         egui::CentralPanel::default().show(ctx, |ui| {
-            //let mut ptr = &self.state.ines.banks[self.scroll..];
-            let mut addr = self.scroll;
-            let mut line_count: usize = 0;
-            let mut bs: Vec<u8> = Vec::new();
-            // helper to add bytes to vec
-            let try_add_bytes = |bs: &mut Vec<u8>, state: &mut State, mut addr: u16, n: usize| {
-                for _ in 0..n {
-                    bs.push(state.read(addr, true));
-                    let (r, overflow) = addr.overflowing_add(1);
-                    if overflow {return}
-                    addr = r;
-                }
-            };
-            // instructions are at most 3 bytes long
-            try_add_bytes(&mut bs, &mut self.state, addr, 3);
-            while let Some((i, len)) = Instruction::from_bytes(&bs)
-                        && line_count < NR_SHOWN_INSTRUCTIONS {
+            self.disassembly.iter().skip_while(|(addr, _)| *addr < self.scroll).take(NR_SHOWN_INSTRUCTIONS).for_each(|(addr, i)| {
                 ui.monospace(format!("{addr:04X}: {i}"));
-                line_count += 1;
-                bs.drain(0..len);
-                try_add_bytes(&mut bs, &mut self.state, addr, len);
-                let (r, overflow) = addr.overflowing_add(len as u16);
-                if overflow {break;}
-                addr = r;
-            }
-                //write!(f, "${n:04X}")
+            });
             //ui.image(egui::include_image!(
             //    "../logo.png"
             //));

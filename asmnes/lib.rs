@@ -38,14 +38,16 @@ pub fn assemble_from_file(path: &str) -> Result<Ines, AsmnesError> {
 }
 
 /// Disassembles as many bytes as possible, returns how many bytes were used
-pub fn disassemble(data: &[u8]) -> (Vec<Instruction>, usize) {
-    let mut output: Vec<Instruction> = Vec::new();
+pub fn disassemble(data: &[u8]) -> (Vec<(usize, Instruction)>, usize) {
+    let mut output: Vec<(usize, Instruction)> = Vec::new();
     let mut pointer = data;
+    let mut addr = 0;
     while let Some((instruction, skipped)) = Instruction::from_bytes(pointer) {
-        output.push(instruction);
+        output.push((addr, instruction));
         pointer = &pointer[skipped..];
+        addr += skipped;
     }
-    (output, data.len() - pointer.len())
+    (output, addr)
 }
 
 pub struct AsmnesError {
