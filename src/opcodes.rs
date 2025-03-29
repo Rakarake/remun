@@ -32,30 +32,60 @@ fn shift(state: &mut State, addr: Option<u16>, right: bool, rotate: bool) {
     new_value(state, val);
 }
 
+/// add: use addition, otherwise subtraction
+fn addsub(state: &mut State, addr: u16, sub: bool) {
+    let arg1 = state.a;
+    let arg2 = state.read(addr, false);
+    // 'not' the carry if subtracting
+    let old_c = state.get_flag(flags::C) ^ sub;
+
+    // determine what operations to use to calculate unsigned carryover
+    // and signed carryover for addition/subtraction respectively
+    let op_u = if sub {|x: u8, y: u8| x.overflowing_sub(y)} else {|x: u8, y: u8| x.overflowing_add(y)};
+    let op_i = if sub {|x: i8, y: i8| x.overflowing_sub(y)} else {|x: i8, y: i8| x.overflowing_add(y)};
+    
+    // Get c/carry (unsigned overflow) and the result
+    let (val, c) = op_u(arg1, arg2);
+    let (val, c_2) = op_u(val, old_c as u8);
+    
+    // Get v/overflow (signed overflow)
+    let (val_test, v) = op_i(arg1 as i8, arg2 as i8);
+    let (_, v_2) = op_i(val_test, old_c as i8);
+    
+    state.a = val;
+    state.set_flag(flags::C, c | c_2);
+    state.set_flag(flags::V, v | v_2);
+    new_value(state, val);
+}
+
+fn incdec(state: &mut State, addr: u16, inc: bool) {
+    let val = state.read(addr, false);
+    state.write(addr, if inc {val.wrapping_add(1)} else {val.wrapping_sub(1)});
+    new_value(state, val);
+}
+
+fn store_register(state: &mut State, addr: u16, reg: u8) {
+    state.write(addr, reg);
+}
+
+fn branch(state: &mut State, addr: u16, cond: bool) {
+    if cond {
+        let old = state.read(addr, false);
+        state.pc = state.pc.wrapping_add_signed(old as i16);
+    }
+}
+
 /// Expects pc to be at next instruction
 pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
     use crate::MemoryTarget::*;
     use Opcode::*;
     match memory_target {
         Address(addr) => {
-            macro_rules! branch {
-                ($cond:expr) => {{
-                    if $cond {
-                        let old = state.read(addr, false);
-                        state.pc = state.pc.wrapping_add_signed(old as i16);
-                    }
-                }}
-            }
             macro_rules! load_register {
                 ($reg:expr) => {{
                     let val = state.read(addr, false);
                     $reg = val;
                     new_value(state, val);
-                }};
-            }
-            macro_rules! store_register {
-                ($reg:expr) => {{
-                    state.write(addr, $reg);
                 }};
             }
             macro_rules! bitwise {
@@ -65,37 +95,10 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                     new_value(state, val);
                 }};
             }
-            macro_rules! addsub {
-                ($op:ident, $carry:expr) => {{
-                    let arg1 = state.a;
-                    let arg2 = state.read(addr, false);
-                    let old_c = $carry;
-
-                    // Get c/carry (unsigned overflow) and the result
-                    let (val, c) = arg1.$op(arg2);
-                    let (val, c_2) = val.$op(old_c as u8);
-
-                    // Get v/overflow (signed overflow)
-                    let (val_test, v) = (arg1 as i8).$op(arg2 as i8);
-                    let (_, v_2) = val_test.$op(old_c as i8);
-
-                    state.a = val;
-                    state.set_flag(flags::C, c | c_2);
-                    state.set_flag(flags::V, v | v_2);
-                    new_value(state, val);
-                }};
-            }
-            macro_rules! incdec {
-                ($by_what:tt) => {{
-                    let val = state.read(addr, false);
-                    state.write(addr, val.$by_what(1));
-                    new_value(state, val);
-                }};
-            }
             match opcode {
                 // Arithmetic Instructions
-                ADC => addsub!(overflowing_add, state.get_flag(flags::C)),
-                SBC => addsub!(overflowing_sub, !state.get_flag(flags::C)),
+                ADC => addsub(state, addr, false),
+                SBC => addsub(state, addr, true),
 
                 // Bitwise operations
                 AND => bitwise!(&),
@@ -114,17 +117,17 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                 }
 
                 // Branch Instructions
-                BNE => branch!(!state.get_flag(flags::Z)),
-                BEQ => branch!(state.get_flag(flags::Z)),
+                BNE => branch(state, addr, !state.get_flag(flags::Z)),
+                BEQ => branch(state, addr, state.get_flag(flags::Z)),
 
-                BPL => branch!(!state.get_flag(flags::N)),
-                BMI => branch!(state.get_flag(flags::N)),
+                BPL => branch(state, addr, !state.get_flag(flags::N)),
+                BMI => branch(state, addr, state.get_flag(flags::N)),
 
-                BVC => branch!(!state.get_flag(flags::V)),
-                BVS => branch!(state.get_flag(flags::V)),
+                BVC => branch(state, addr, !state.get_flag(flags::V)),
+                BVS => branch(state, addr, state.get_flag(flags::V)),
 
-                BCC => branch!(!state.get_flag(flags::C)),
-                BCS => branch!(state.get_flag(flags::C)),
+                BCC => branch(state, addr, !state.get_flag(flags::C)),
+                BCS => branch(state, addr, state.get_flag(flags::C)),
 
                 // Load Instructions
                 LDA => load_register!(state.a),
@@ -132,13 +135,13 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                 LDY => load_register!(state.y),
 
                 // Store Instructions
-                STA => store_register!(state.a),
-                STX => store_register!(state.x),
-                STY => store_register!(state.y),
+                STA => store_register(state, addr, state.a),
+                STX => store_register(state, addr, state.x),
+                STY => store_register(state, addr, state.y),
 
                 // Increments / Decrements
-                DEC => incdec!(wrapping_sub),
-                INC => incdec!(wrapping_add),
+                DEC => incdec(state, addr, false),
+                INC => incdec(state, addr, true),
 
                 o => unimplemented!("{o}"),
             }
