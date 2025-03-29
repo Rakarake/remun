@@ -48,6 +48,18 @@ struct MyApp {
 
 const NR_SHOWN_INSTRUCTIONS: usize = 30;
 
+// slightly ugly way to input only valid numbers: https://github.com/emilk/egui/issues/1348#issuecomment-1652168882
+fn integer_edit_field(ui: &mut egui::Ui, value: &mut u16) -> egui::Response {
+    let mut tmp_value = format!("{:X}", value);
+    let res = ui.text_edit_singleline(&mut tmp_value);
+    if let Ok(result) = u16::from_str_radix(&tmp_value, 16) {
+        *value = result;
+    } else {
+        *value = 0;
+    }
+    res
+}
+
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::SidePanel::left("left_bar").show(ctx, |ui| {
@@ -64,7 +76,9 @@ impl eframe::App for MyApp {
             //if ui.button("Load File (.nes or .asm)").clicked() {
             //    self.state = State::new(asmnes::assemble_from_file(self.file_path.as_str()).unwrap());
             //}
-            //ui.add(Slider::new(&mut self.scroll, 0..=self.state.ines.banks.len()-1).step_by(1.0));
+            //ui.add(Slider::new(&mut self.scroll, 0..=u16::MAX).step_by(1.0));
+            ui.label("Address");
+            integer_edit_field(ui, &mut self.scroll);
             if ui.small_button("+").clicked() { self.scroll += 1; }
             if ui.small_button("-").clicked() { self.scroll -= 1; }
             if ui.small_button("step").clicked() {
@@ -87,14 +101,27 @@ impl eframe::App for MyApp {
             //let mut ptr = &self.state.ines.banks[self.scroll..];
             let mut addr = self.scroll;
             let mut line_count: usize = 0;
-            let mut bs: Vec<u8> = vec![self.state.read(addr, true), self.state.read(addr + 1, true), self.state.read(addr + 2, true)];
+            let mut bs: Vec<u8> = Vec::new();
+            // helper to add bytes to vec
+            let try_add_bytes = |bs: &mut Vec<u8>, state: &mut State, mut addr: u16, n: usize| {
+                for _ in 0..n {
+                    bs.push(state.read(addr, true));
+                    let (r, overflow) = addr.overflowing_add(1);
+                    if overflow {return}
+                    addr = r;
+                }
+            };
+            // instructions are at most 3 bytes long
+            try_add_bytes(&mut bs, &mut self.state, addr, 3);
             while let Some((i, len)) = Instruction::from_bytes(&bs)
                         && line_count < NR_SHOWN_INSTRUCTIONS {
-                bs.drain(0..len);
-                bs.append(&mut (0..len).map(|i| self.state.read(addr + i as u16, true)).collect());
                 ui.monospace(format!("{addr:04X}: {i}"));
-                addr += len as u16;
                 line_count += 1;
+                bs.drain(0..len);
+                try_add_bytes(&mut bs, &mut self.state, addr, len);
+                let (r, overflow) = addr.overflowing_add(len as u16);
+                if overflow {break;}
+                addr = r;
             }
                 //write!(f, "${n:04X}")
             //ui.image(egui::include_image!(
