@@ -1,6 +1,6 @@
 target
 .direnv
-rom.nes
+roms/
 
 
 # Added by cargo
