@@ -6,6 +6,32 @@ use shared::flags;
 // Thanks https://www.masswerk.at/6502/6502_instruction_set.html, made this
 // a plesant experience!
 
+/// Shift operation, right indicates bitshift to the right, left otherwise.
+/// Rotate indicates if the old carry is placed as the newly shifted in bit.
+/// If addr is None, the shift will be done on the accumulator.
+fn shift(state: &mut State, addr: Option<u16>, right: bool, rotate: bool) {
+    // read value to be shifted
+    let old = if let Some(addr) = addr {
+        state.read(addr, false)
+    } else {
+        state.a
+    };
+    // find the bit that will be outshifted (new carry)
+    let new_c = old & (1 << if right {0} else {7});
+    // shift
+    let val = if right {old >> 1} else {old << 1}
+        | if rotate {(state.get_flag(flags::C) as u8) << if right {7} else {0}} else {0};
+    // write result
+    if let Some(addr) = addr {
+        state.write(addr, val);
+    } else {
+        state.a = val;
+    }
+    // set carry
+    state.set_flag(flags::C, new_c != 0);
+    new_value(state, val);
+}
+
 /// Expects pc to be at next instruction
 pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
     use crate::MemoryTarget::*;
@@ -30,17 +56,6 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
             macro_rules! store_register {
                 ($reg:expr) => {{
                     state.write(addr, $reg);
-                }};
-            }
-            macro_rules! shift {
-                ($right:expr, $rotate:expr) => {{
-                    let old = state.read(addr, false);
-                    let new_c = old & (1 << if $right {0} else {7});
-                    let val = if $right {(old >> 1)} else {(old << 1)}
-                        | if $rotate {(state.get_flag(flags::C) as u8) << if $right {7} else {0}} else {0};
-                    state.write(addr, val);
-                    state.set_flag(flags::C, new_c != 0);
-                    new_value(state, val);
                 }};
             }
             macro_rules! bitwise {
@@ -88,10 +103,10 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                 EOR => bitwise!(^),
 
                 // Shift operations
-                ROL => shift!(false, true),
-                ROR => shift!(true, true),
-                ASL => shift!(false, false),
-                LSR => shift!(true, false),
+                ROL => shift(state, Some(addr), false, true),
+                ROR => shift(state, Some(addr), true, true),
+                ASL => shift(state, Some(addr), false, false),
+                LSR => shift(state, Some(addr), true, false),
 
                 // Jump
                 JMP => {
@@ -130,7 +145,11 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
         }
         Accumulator => match opcode {
             // Shift Instructions
-            _ => unimplemented!("opcode not implemented: {:?}", opcode),
+            ROL => shift(state, None, false, true),
+            ROR => shift(state, None, true, true),
+            ASL => shift(state, None, false, false),
+            LSR => shift(state, None, true, false),
+            _ => unimplemented!("opcode {:?} not implemented for accumulator operation", opcode),
         },
         Impl => {
             macro_rules! set_flag {
