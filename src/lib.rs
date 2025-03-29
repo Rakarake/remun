@@ -70,7 +70,7 @@ pub enum AddressSpace {
 
 impl State {
     pub fn new(ines: Ines) -> Self {
-        let pc = 0xc000;
+        let pc = 0xFFFC;
         let x = 0;
         let a = 0;
         let y = 0;
@@ -154,7 +154,7 @@ impl State {
             }],
             device: Device::ROM(if ines.inesprg == 1 {3} else {5}),
         });
-        Self {
+        let mut state = Self {
             pc,
             a,
             x,
@@ -164,7 +164,12 @@ impl State {
             cycles,
             ines,
             memory,
-        }
+        };
+        let lo = state.read(0xFFFC, true) as u16;
+        let hi = state.read(0xFFFD, true) as u16;
+        state.pc = (hi << 8) | lo;
+        debug!("setting PC to ${:04X}", state.pc);
+        state
     }
 
     pub fn set_flag(&mut self, flag: u8, value: bool) {
