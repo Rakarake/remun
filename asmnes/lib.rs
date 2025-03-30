@@ -14,6 +14,7 @@ use shared::Opcode;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs;
+use std::path::PathBuf;
 
 /// Helper macro to return an error with context
 macro_rules! err {
@@ -29,12 +30,15 @@ macro_rules! err {
 }
 
 /// Fully assemble a program.
-pub fn assemble(program: &str) -> Result<Ines, AsmnesError> {
+fn assemble(program: &str) -> Result<Ines, AsmnesError> {
     logical_assemble(&parse(lex(program)?)?)
 }
 
+/// Reads a file and assembles it.
 pub fn assemble_from_file(path: &str) -> Result<Ines, AsmnesError> {
-    assemble(&fs::read_to_string(path).map_err(|e| err!(format!("failed to load file: {e}"), 0))?)
+    let mut ines = assemble(&fs::read_to_string(path).map_err(|e| err!(format!("failed to load file: {e}"), 0))?)?;
+    ines.data_source = Some(PathBuf::from(path));
+    Ok(ines)
 }
 
 /// Disassembles as many bytes as possible, returns how many bytes were used
@@ -413,6 +417,7 @@ pub fn logical_assemble(program: &[DStatement]) -> Result<Ines, AsmnesError> {
         mirroring: mirroring.ok_or(err!("need to specify .inesmir", 0))?,
         mapper: mapper.ok_or(err!("need to specify .inesmap", 0))?,
         banks: banks.ok_or(err!("all header information needs to be specified", 0))?,
-        labels,
+        labels: Some(labels),
+        data_source: None,
     })
 }

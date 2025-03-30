@@ -1,6 +1,6 @@
 use AddressingMode::*;
 use Opcode::*;
-use std::{collections::HashMap, error::Error, fmt, fs::File, io::{self, BufReader, Read}, path::Path, str::FromStr};
+use std::{collections::HashMap, error::Error, fmt, fs::File, io::{self, BufReader, Read}, path::{Path, PathBuf}, str::FromStr};
 use strum::IntoEnumIterator;
 
 /// Simple range struct for range checking.
@@ -39,8 +39,12 @@ pub struct Ines {
     pub mapper: u16,
     /// The rest of the iNES file, PRG first then CHR.
     pub banks: Vec<u8>,
-    /// Debug information.
-    pub labels: HashMap<String, u16>,
+
+    // Metadata
+    /// Optional path to the source file (rom/assembly whatever)
+    pub data_source: Option<PathBuf>,
+    /// Debug labels
+    pub labels: Option<HashMap<String, u16>>,
 }
 
 /// Error when reading an INES file.
@@ -90,7 +94,7 @@ impl std::error::Error for InesError {}
 impl Ines {
     /// Reads INES file.
     pub fn from_file<T: AsRef<Path>>(path: T) -> Result<Self, InesError> {
-        let f = File::open(path)?;
+        let f = File::open(&path)?;
         let mut reader = BufReader::new(f);
         let mut header: [u8; 16] = [0; 16];
         reader.read_exact(&mut header)?;
@@ -107,13 +111,16 @@ impl Ines {
         if data_len != expected_size {
             return Err(InesError::ParseError(InesParseError::FileInvalidLength))
         }
+        let data_source: Option<PathBuf> = Some(PathBuf::from(path.as_ref()));
+        let labels = None;
         Ok(Ines {
             inesprg,
             ineschr,
             mirroring,
             mapper,
-            labels: HashMap::new(),
             banks,
+            data_source,
+            labels,
         })
     }
 }

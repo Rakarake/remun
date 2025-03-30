@@ -3,6 +3,7 @@ pub mod addressing_modes;
 pub mod memory;
 pub mod opcodes;
 
+use std::path::PathBuf;
 use std::usize;
 
 use log::debug;
@@ -25,14 +26,14 @@ pub struct State {
     /// Y register
     pub y: u8,
     /// Status register: NV-BDIZC
-    /// N  Negative
-    /// V  Overflow
-    /// -  ignored
-    /// B  Break
-    /// D  Decimal (unused on the NES)
-    /// I  Interrupt (IRQ disable)
-    /// Z  Zero
-    /// C  Carry
+    /// - N  Negative
+    /// - V  Overflow
+    /// - \-  ignored
+    /// - B  Break
+    /// - D  Decimal (unused on the NES)
+    /// - I  Interrupt (IRQ disable)
+    /// - Z  Zero
+    /// - C  Carry
     pub sr: u8,
     /// Stack pointer
     pub sp: u8,
@@ -70,7 +71,7 @@ pub enum AddressSpace {
 
 impl State {
     pub fn new(ines: Ines) -> Self {
-        let pc = 0xFFFC;
+        let pc = 0;
         let x = 0;
         let a = 0;
         let y = 0;
