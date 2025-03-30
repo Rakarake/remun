@@ -94,6 +94,6 @@ pub fn run(addressing_mode: AddressingMode, state: &mut State) -> MemoryTarget {
                     + state.y as u16,
             )
         }
-        J => unimplemented!(),
+        J => unimplemented!("the jam addressing mode (illegal!)"),
     }
 }

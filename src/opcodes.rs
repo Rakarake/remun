@@ -79,6 +79,18 @@ fn branch(state: &mut State, addr: u16, cond: bool) {
 pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
     use crate::MemoryTarget::*;
     use Opcode::*;
+    macro_rules! push {
+        ($what:expr) => {{
+            state.write(state.sp as u16 + 0x0100, $what);
+            dec_stack(state);
+        }};
+    }
+    macro_rules! pull {
+        ($what:expr) => {{
+            inc_stack(state);
+            $what = state.read(state.sp as u16 + 0x0100, false);
+        }};
+    }
     match memory_target {
         Address(addr) => {
             macro_rules! load_register {
@@ -143,7 +155,13 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                 DEC => incdec(state, addr, false),
                 INC => incdec(state, addr, true),
 
-                o => unimplemented!("{o}"),
+                // Subroutines
+                JSR => {
+                    push_pc(state);
+                    state.pc = addr;
+                }
+
+                o => unimplemented!("address provided to opcode {o}"),
             }
         }
         Accumulator => match opcode {
@@ -165,20 +183,6 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                     let val = $src;
                     $dst = val;
                     new_value(state, val);
-                }};
-            }
-            macro_rules! push {
-                ($what:expr) => {{
-                    state.write(state.sp as u16 + 0x0100, $what);
-                    let (new_pos, _) = state.sp.overflowing_sub(1);
-                    state.sp = new_pos;
-                }};
-            }
-            macro_rules! pull {
-                ($what:expr) => {{
-                    let (new_pos, _) = state.sp.overflowing_add(1);
-                    state.sp = new_pos;
-                    $what = state.read(state.sp as u16 + 0x0100, false);
                 }};
             }
             macro_rules! incdecxy {
@@ -219,11 +223,50 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                 DEY => incdecxy!(state.y, wrapping_sub),
                 INY => incdecxy!(state.y, wrapping_add),
 
+                // Return from interrupt
+                RTI => {
+                    pull!(state.sr);
+                    pull_pc(state);
+                }
+
+                // Return from subroutine
+                RTS => {
+                    pull_pc(state);
+                    state.pc += 1;
+                }
+
                 NOP => {},
                 _ => unimplemented!("opcode not implemented: {:?}", opcode),
             }
         }
     }
+}
+
+fn inc_stack(state: &mut State) {
+    let (new_pos, _) = state.sp.overflowing_add(1);
+    state.sp = new_pos;
+}
+
+fn dec_stack(state: &mut State) {
+    let (new_pos, _) = state.sp.overflowing_add(1);
+    state.sp = new_pos;
+}
+
+fn pull_pc(state: &mut State) {
+    inc_stack(state);
+    let pc_lo = state.read(state.sp as u16 | 0x0100, false);
+    inc_stack(state);
+    let pc_hi = state.read(state.sp as u16 | 0x0100, false);
+    state.pc = ((pc_hi as u16) << 8) | pc_lo as u16;
+}
+
+fn push_pc(state: &mut State) {
+    let pc_hi = (state.pc >> 8) as u8;
+    state.write(state.sp as u16 | 0x0100, pc_hi);
+    dec_stack(state);
+    let pc_lo = state.pc as u8;
+    state.write(state.sp as u16 | 0x0100, pc_lo);
+    dec_stack(state);
 }
 
 /// Common flag operations for when updating some value..

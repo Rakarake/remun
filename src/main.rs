@@ -10,7 +10,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
         if let Some(os_str) = p.extension() {
             match os_str.to_str() {
                 Some("nes") => { shared::Ines::from_file(&file)? }
-                Some("asm") => { asmnes::assemble_from_file(&file)? }
+                Some("asm") => { asmnes::assemble(&file)? }
                 _ => { panic!("wrong extension or werid format") }
             }
         } else {

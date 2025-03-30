@@ -30,13 +30,9 @@ macro_rules! err {
 }
 
 /// Fully assemble a program.
-fn assemble(program: &str) -> Result<Ines, AsmnesError> {
-    logical_assemble(&parse(lex(program)?)?)
-}
-
-/// Reads a file and assembles it.
-pub fn assemble_from_file(path: &str) -> Result<Ines, AsmnesError> {
-    let mut ines = assemble(&fs::read_to_string(path).map_err(|e| err!(format!("failed to load file: {e}"), 0))?)?;
+pub fn assemble(path: &str) -> Result<Ines, AsmnesError> {
+    let program = &fs::read_to_string(path).map_err(|e| err!(format!("failed to load file: {e}"), 0))?;
+    let mut ines = logical_assemble(&parse(lex(program)?)?)?;
     ines.data_source = Some(PathBuf::from(path));
     Ok(ines)
 }

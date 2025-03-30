@@ -211,7 +211,7 @@ impl AddressingMode {
             AddressingMode::IND => 3,
             AddressingMode::X_IND => 2,
             AddressingMode::IND_Y => 2,
-            AddressingMode::J => unimplemented!("illegal instruction!"),
+            AddressingMode::J => unimplemented!("length of illegal instruction!"),
         }
     }
 }

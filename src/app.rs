@@ -64,6 +64,9 @@ fn integer_edit_field(ui: &mut egui::Ui, value: &mut u16) -> egui::Response {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::SidePanel::left("left_bar").show(ctx, |ui| {
+            if let Some(data_source) = &self.state.ines.data_source {
+                ui.label(format!("Loaded file: {}", data_source.display()));
+            }
             if ui.button("Open ROM/assembly file").clicked() {
                 let files = FileDialog::new()
                     .add_filter("text", &["txt", "rs"])
