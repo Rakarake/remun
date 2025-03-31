@@ -3,6 +3,12 @@
 .inesprg 1
 .ineschr 1
 
+.bank 1
+; Reset vector
+.org $FFFC
+.db $00
+.db $C0
+
 .bank 0
 .org $C000
 
