@@ -2,6 +2,7 @@ use crate::MemoryTarget;
 use crate::State;
 use shared::Opcode;
 use shared::flags;
+use log::debug;
 
 // Thanks https://www.masswerk.at/6502/6502_instruction_set.html, made this
 // a plesant experience!
@@ -71,8 +72,10 @@ fn store_register(state: &mut State, addr: u16, reg: u8) {
 fn branch(state: &mut State, addr: u16, cond: bool) {
     if cond {
         let old = state.read(addr, false);
-        state.pc = state.pc.wrapping_add_signed(old as i16);
+        debug!("branching: {:?}", old as i8);
+        state.pc = state.pc.wrapping_add_signed((old as i8) as i16);
     }
+    debug!("not branching");
 }
 
 /// Expects pc to be at next instruction
