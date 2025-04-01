@@ -68,12 +68,19 @@ impl eframe::App for MyApp {
                 ui.label(format!("Loaded file: {}", data_source.display()));
             }
             if ui.button("Open ROM/assembly file").clicked() {
-                let files = FileDialog::new()
-                    .add_filter("text", &["txt", "rs"])
-                    .add_filter("rust", &["rs", "toml"])
-                    .set_directory("/")
+                let path = FileDialog::new()
+                    .add_filter("NES Rom", &["nes"])
+                    .add_filter("Assembly", &["asm"])
                     .pick_file();
-                println!("{:?}", files);
+                // just log the errors in the console!
+                if let Some(path) = path  {
+                    match remun::load_from_file(path) {
+                        Ok(ines) => self.state = State::new(ines),
+                        Err(e) => log::error!("{e}"),
+                    }
+                } else {
+                    log::warn!("failed to open file!");
+                }
             }
             //ui.text_edit_singleline(&mut self.file_path);
             // TODO do both

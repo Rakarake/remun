@@ -3,9 +3,12 @@ pub mod addressing_modes;
 pub mod memory;
 pub mod opcodes;
 
+use std::error::Error;
+use std::path::Path;
 use std::path::PathBuf;
 use std::usize;
 
+use asmnes::assemble;
 use log::debug;
 use shared::AddressingMode;
 use shared::BANK_SIZE;
@@ -67,6 +70,38 @@ pub enum Device {
 pub enum AddressSpace {
     CPU,
     PPU,
+}
+
+#[derive(Debug)]
+pub enum FileError {
+    AsmnesError(asmnes::AsmnesError),
+    InesError(shared::InesError),
+    InvalidFileType,
+}
+
+use std::fmt;
+impl std::error::Error for FileError {}
+
+impl fmt::Display for FileError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            FileError::AsmnesError(e) => write!(f, "{e}"),
+            FileError::InesError(e) => write!(f, "{e}"),
+            FileError::InvalidFileType => write!(f, "supports files of type .nes or .asm"),
+        }
+    }
+}
+
+pub fn load_from_file<T: AsRef<Path>>(path: T) -> Result<Ines, FileError> {
+    if let Some(os_str) = path.as_ref().extension() {
+        match os_str.to_str() {
+            Some("nes") => { shared::Ines::from_file(&path).map_err(FileError::InesError) }
+            Some("asm") => { assemble(&path).map_err(FileError::AsmnesError) }
+            _ => Err(FileError::InvalidFileType),
+        }
+    } else {
+        Err(FileError::InvalidFileType)
+    }
 }
 
 impl State {

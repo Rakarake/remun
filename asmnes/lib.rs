@@ -14,6 +14,7 @@ use shared::Opcode;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs;
+use std::path::Path;
 use std::path::PathBuf;
 
 /// Helper macro to return an error with context
@@ -30,7 +31,8 @@ macro_rules! err {
 }
 
 /// Fully assemble a program.
-pub fn assemble(path: &str) -> Result<Ines, AsmnesError> {
+pub fn assemble<T: AsRef<Path>>(path: T) -> Result<Ines, AsmnesError> {
+    let path = path.as_ref();
     let program = &fs::read_to_string(path).map_err(|e| err!(format!("failed to load file: {e}"), 0))?;
     let mut ines = logical_assemble(&parse(lex(program)?)?)?;
     ines.data_source = Some(PathBuf::from(path));
