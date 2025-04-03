@@ -176,6 +176,7 @@ impl AddressingMode {
     }
 }
 
+/// Constant u8 values representing the bits of flags in sr (Status Register)
 pub mod flags {
     /// Negative flag: is bit7 1?
     pub const N: u8 = 1 << 7;
@@ -192,6 +193,14 @@ pub mod flags {
     pub const Z: u8 = 1 << 1;
     /// Carry: does add operation carry over?
     pub const C: u8 = 1 << 0;
+}
+
+/// The system vecotrs (memory locations where the program jumps when encountering
+/// interrupts).
+pub mod vectors {
+    pub const NMI: u16 = 0xFFFA;
+    pub const RESET: u16 = 0xFFFC;
+    pub const IRQ: u16 = 0xFFFE;
 }
 
 impl AddressingMode {
