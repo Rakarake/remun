@@ -68,7 +68,7 @@ pub async fn run(state: State) {
             Event::MainEventsCleared => {
                 // RedrawRequested will only trigger once, unless we manually
                 // request it.
-                //state.window().request_redraw();
+                state.window.request_redraw();
             }
             _ => {}
         }
@@ -202,7 +202,7 @@ fn create_window(event_loop: &EventLoop<()>) -> (Window, PhysicalSize<u32>) {
     (
         WindowBuilder::new()
             .with_inner_size(size)
-            .build(&event_loop)
+            .build(event_loop)
             .unwrap(),
         size,
     )
