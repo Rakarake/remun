@@ -201,9 +201,7 @@ impl State {
             ines,
             memory,
         };
-        let lo = state.read(shared::vectors::RESET, true) as u16;
-        let hi = state.read(shared::vectors::RESET + 1, true) as u16;
-        state.pc = (hi << 8) | lo;
+        state.reset();
         debug!("setting PC to ${:04X}", state.pc);
         state
     }
@@ -285,6 +283,13 @@ cycles: {}\
                 Device::ROM(_bytes) => {}
             }
         }
+    }
+
+    /// A soft reset.
+    pub fn reset(&mut self) {
+        let lo = self.read(shared::vectors::RESET, true) as u16;
+        let hi = self.read(shared::vectors::RESET + 1, true) as u16;
+        self.pc = (hi << 8) | lo;
     }
 }
 

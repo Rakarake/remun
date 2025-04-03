@@ -28,6 +28,7 @@ impl fmt::Display for Range {
 pub const BANK_SIZE: usize = 1024 * 8;
 
 /// Representation of an iNES file (not NES 2.0 just yet :))
+#[derive(Clone)]
 pub struct Ines {
     /// Size of PRG ROM in 16KiB units.
     pub inesprg: u16,

@@ -82,6 +82,12 @@ impl eframe::App for MyApp {
                     log::warn!("failed to open file!");
                 }
             }
+            if ui.button("Soft Reset").clicked() {
+                self.state.reset();
+            }
+            if ui.button("Hard Reset").clicked() {
+                self.state = State::new(self.state.ines.clone());
+            }
             //ui.text_edit_singleline(&mut self.file_path);
             // TODO do both
             //if ui.button("Load File (.nes or .asm)").clicked() {
