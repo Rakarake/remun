@@ -1,6 +1,5 @@
+//! The app, creates window, renders the game etc.
 use remun::State;
-
-//mod visualizer;
 
 pub fn run(mut state: State) {
     //let options = eframe::NativeOptions {

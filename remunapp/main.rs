@@ -1,9 +1,8 @@
 #![feature(let_chains)]
 use std::{env, error::Error, path::Path};
 
-use remun;
-
 mod app;
+mod visualizer;
 
 pub fn main() -> Result<(), Box<dyn Error>> {
     pretty_env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
