@@ -15,4 +15,5 @@ egui = { workspace = true }
 log = { workspace = true }
 pretty_env_logger = { workspace = true }
 rfd = { workspace = true }
+winit = { workspace = true }
 
