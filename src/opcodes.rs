@@ -238,6 +238,15 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                     state.pc += 1;
                 }
 
+                // Break: initiate software interrupt
+                BRK => {
+                    // Skipping byte representing the reason for the interrupt
+                    state.pc += 1;
+                    push_pc(state);
+                    push!(state.sr | flags::B | flags::I);
+                    state.pc = shared::vectors::IRQ;
+                }
+
                 NOP => {},
                 _ => unimplemented!("opcode not implemented: {:?}", opcode),
             }

@@ -201,8 +201,8 @@ impl State {
             ines,
             memory,
         };
-        let lo = state.read(0xFFFC, true) as u16;
-        let hi = state.read(0xFFFD, true) as u16;
+        let lo = state.read(shared::vectors::RESET, true) as u16;
+        let hi = state.read(shared::vectors::RESET + 1, true) as u16;
         state.pc = (hi << 8) | lo;
         debug!("setting PC to ${:04X}", state.pc);
         state
