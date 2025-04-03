@@ -1,0 +1,16 @@
+[package]
+name = "remunapp"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "remunapp"
+path = "main.rs"
+
+[dependencies]
+remun = { workspace = true }
+shared = { workspace = true }
+egui = { workspace = true }
+log = { workspace = true }
+pretty_env_logger = { workspace = true }
+

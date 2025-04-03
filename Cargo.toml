@@ -6,19 +6,23 @@ edition = "2024"
 [dependencies]
 asmnes = { workspace = true }
 shared = { workspace = true }
-eframe = { version = "0.31" }
+log = { workspace = true }
+
+[workspace]
+members = [ "asmnes", "remunapp", "shared" ]
+
+[workspace.dependencies]
+strum = "0.26"
+strum_macros = "0.26"
+#eframe = { version = "0.31" }
+egui = "0.31.1"
 egui_extras = { version = "0.31", features = ["default", "image"] }
 pretty_env_logger = "0.4"
 log = "0.4"
 rfd = "0.15.3"
 
-[workspace]
-members = [ "asmnes", "shared" ]
-
-[workspace.dependencies]
-strum = "0.26"
-strum_macros = "0.26"
-
 shared = { path = "shared" }
 asmnes = { path = "asmnes" }
+remunapp = { path = "remunapp" }
+remun = { path = "./" }
 
