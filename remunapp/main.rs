@@ -19,6 +19,13 @@ mod visualizer;
 struct App<'window> {
     window: Option<Arc<Window>>,
     render_state: Option<RenderState<'window>>,
+    egui_overlay: Option<EguiOverlay>,
+}
+
+struct EguiOverlay {
+    platform: Platform,
+    render_pass: RenderPass,
+    // TODO add egui app
 }
 
 struct RenderState<'window> {
@@ -34,6 +41,7 @@ impl App<'_> {
         App {
             window: None,
             render_state: None,
+            egui_overlay: None,
         }
     }
 }
@@ -61,9 +69,34 @@ impl ApplicationHandler for App<'_> {
                 return;
             }
         };
+        let window_size = window.inner_size();
+
+        // We use the egui_winit_platform crate as the platform.
+        let mut platform = Platform::new(PlatformDescriptor {
+            physical_width: window_size.width as u32,
+            physical_height: window_size.height as u32,
+            scale_factor: window.scale_factor(),
+            font_definitions: FontDefinitions::default(),
+            style: Default::default(),
+        });
+
         let window_wrapper = Arc::new(window);
-        self.window = Some(window_wrapper.clone());
-        self.render_state = Some(pollster::block_on(RenderState::new(window_wrapper)));
+        let render_state = pollster::block_on(RenderState::new(window_wrapper.clone()));
+
+        // We use the egui_wgpu_backend crate as the render backend.
+        let mut render_pass = RenderPass::new(&render_state.device, render_state.config.format, 1);
+
+        // Display the demo application that ships with egui.
+        //let mut demo_app = egui_demo_lib::DemoWindows::default();
+
+        let egui_overlay = EguiOverlay {
+            platform,
+            render_pass,
+        };
+
+        self.window = Some(window_wrapper);
+        self.render_state = Some(render_state);
+        self.egui_overlay = Some();
     }
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
         println!("{event:?}");
