@@ -17,11 +17,13 @@ strum_macros = "0.26"
 #eframe = { version = "0.31" }
 egui = "0.31.1"
 egui_extras = { version = "0.31", features = ["default", "image"] }
+egui_wgpu_backend = "0.34"
+egui_winit_platform = "0.26"
 pretty_env_logger = "0.4"
 log = "0.4"
 rfd = "0.15.3"
-winit = "0.28"
-wgpu = "0.17.0"
+winit = "0.30"
+wgpu = "24.0"
 pollster = "*"
 
 shared = { path = "shared" }
