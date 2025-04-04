@@ -96,7 +96,7 @@ impl ApplicationHandler for App<'_> {
 
         self.window = Some(window_wrapper);
         self.render_state = Some(render_state);
-        self.egui_overlay = Some();
+        self.egui_overlay = Some(egui_overlay);
     }
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
         println!("{event:?}");
