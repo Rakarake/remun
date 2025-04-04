@@ -136,7 +136,13 @@ impl ApplicationHandler for App<'_> {
 
                 // Draw.
                 //fill::fill_window(window.as_ref());
-                self.render_state.as_mut().unwrap().render(self.egui_overlay.as_mut().unwrap(), self.start_time, &mut self.state).unwrap();
+                render(self).unwrap();
+
+                // LOL do it again
+                let window = self
+                    .window
+                    .as_ref()
+                    .expect("redraw request without a window");
 
                 // For contiguous redraw loop you can request a redraw from here.
                 window.request_redraw();
@@ -152,107 +158,92 @@ pub fn render(app: &mut App) -> Result<(), wgpu::SurfaceError> {
     let render_state = app.render_state.as_mut().unwrap();
     let state = &mut app.state;
     let platform = &mut egui_overlay.platform;
-    let window = app.window.unwrap();
+    let window = app.window.as_mut().unwrap();
     let device = &mut render_state.device;
-    let queue =
+    let queue = &mut render_state.queue;
     let egui_rpass = &mut egui_overlay.render_pass;
     let dimensions = window.inner_size();
     let width = dimensions.width;
     let height = dimensions.height;
 
-    egui_overlay.platform.update_time(start_time.elapsed().as_secs_f64());
-    let output = render_state.surface.get_current_texture()?;
-    let view = output
+    // Update when
+    platform.update_time(start_time.elapsed().as_secs_f64());
+
+    let output_frame = render_state.surface.get_current_texture()?;
+    let output_view = output_frame
         .texture
         .create_view(&wgpu::TextureViewDescriptor::default());
-    let mut encoder = device
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Render Encoder"),
-        });
 
     // render 🐻
-    {
-        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Render Pass"),
-            occlusion_query_set: None,
-            timestamp_writes: None,
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &view,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color {
-                        r: 0.1,
-                        g: 0.2,
-                        b: 0.3,
-                        a: 1.0,
-                    }),
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: None,
-        });
+    //let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+    //    label: Some("Render Pass"),
+    //    occlusion_query_set: None,
+    //    timestamp_writes: None,
+    //    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+    //        view: &view,
+    //        resolve_target: None,
+    //        ops: wgpu::Operations {
+    //            load: wgpu::LoadOp::Clear(wgpu::Color {
+    //                r: 0.1,
+    //                g: 0.2,
+    //                b: 0.3,
+    //                a: 1.0,
+    //            }),
+    //            store: wgpu::StoreOp::Store,
+    //        },
+    //    })],
+    //    depth_stencil_attachment: None,
+    //});
 
-        platform.update_time( start_time.elapsed().as_secs_f64());
-        let output_frame = render_state.surface.get_current_texture()?;
-        let output_view = output_frame
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
+    // Begin to draw the UI frame.
+    //egui_overlay.platform.begin_frame();
+    platform.begin_pass();
 
-        // Begin to draw the UI frame.
-        //egui_overlay.platform.begin_frame();
-        platform.begin_pass();
+    // Draw the demo application.
+    //demo_app.ui(&platform.context());
+    egui_overlay.visualizer.update(&platform.context(), state);
 
-        // Draw the demo application.
-        //demo_app.ui(&platform.context());
-        egui_overlay.visualizer.update(&platform.context(), state);
+    // End the UI frame. We could now handle the output and draw the UI with the backend.
+    let full_output = platform.end_pass(Some(window));
+    let context = &platform.context();
+    // NOTE don't know if the pixels_per_point is fine
+    let paint_jobs = context.tessellate(full_output.shapes, context.pixels_per_point());
 
-        // End the UI frame. We could now handle the output and draw the UI with the backend.
-        let full_output = platform.end_pass(Some(&window));
-        let context = &platform.context();
-        // NOTE don't know if the pixels_per_point is fine
-        let paint_jobs = context.tessellate(full_output.shapes, context.pixels_per_point());
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("encoder"),
+    });
 
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("encoder"),
-        });
+    // Upload all resources for the GPU.
+    let screen_descriptor = ScreenDescriptor {
+        physical_width: width,
+        physical_height: height,
+        scale_factor: window.scale_factor() as f32,
+    };
+    let tdelta: egui::TexturesDelta = full_output.textures_delta;
+    egui_rpass
+        .add_textures(&device, &queue, &tdelta)
+        .expect("add texture ok");
+    egui_rpass.update_buffers(&device, &queue, &paint_jobs, &screen_descriptor);
 
-        // Upload all resources for the GPU.
-        let screen_descriptor = ScreenDescriptor {
-            physical_width: width,
-            physical_height: height,
-            scale_factor: window.scale_factor() as f32,
-        };
-        let tdelta: egui::TexturesDelta = full_output.textures_delta;
-        egui_rpass
-            .add_textures(&device, &queue, &tdelta)
-            .expect("add texture ok");
-        egui_rpass.update_buffers(&device, &queue, &paint_jobs, &screen_descriptor);
+    // Record all render passes.
+    egui_rpass
+        .execute(
+            &mut encoder,
+            &output_view,
+            &paint_jobs,
+            &screen_descriptor,
+            Some(wgpu::Color::BLACK),
+        )
+        .unwrap();
+    // Submit the commands.
+    queue.submit(std::iter::once(encoder.finish()));
 
-        // Record all render passes.
-        egui_rpass
-            .execute(
-                &mut encoder,
-                &output_view,
-                &paint_jobs,
-                &screen_descriptor,
-                Some(wgpu::Color::BLACK),
-            )
-            .unwrap();
-        // Submit the commands.
-        queue.submit(iter::once(encoder.finish()));
+    // Redraw egui
+    output_frame.present();
 
-        // Redraw egui
-        output_frame.present();
-
-        egui_rpass
-            .remove_textures(tdelta)
-            .expect("remove texture ok");
-
-
-    }
-
-    self.queue.submit(std::iter::once(encoder.finish()));
-    output.present();
+    egui_rpass
+        .remove_textures(tdelta)
+        .expect("remove texture ok");
 
     Ok(())
 }
