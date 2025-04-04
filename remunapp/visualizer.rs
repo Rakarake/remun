@@ -83,26 +83,26 @@ impl Visualizer {
             ui.label(format!("SP: ${:02X}", state.sp));
             ui.label(format!("PC: ${:04X}", state.pc));
         });
-        egui::CentralPanel::default().show(ctx, |ui| {
-            self.disassembly.iter().skip_while(|(addr, _)| *addr < self.scroll).take(NR_SHOWN_INSTRUCTIONS).for_each(|(addr, i)| {
-                ui.monospace(format!("{addr:04X}: {i}"));
-            });
-            //ui.image(egui::include_image!(
-            //    "../logo.png"
-            //));
-            //ui.heading("My egui Application");
-            //ui.horizontal(|ui| {
-            //    let name_label = ui.label("Your name: ");
-            //    ui.text_edit_singleline(&mut self.name)
-            //        .labelled_by(name_label.id);
-            //});
-            //ui.add(egui::Slider::new(&mut self.age, 0..=120).text("age"));
-            //if ui.button("Increment").clicked() {
-            //    self.age += 1;
-            //}
-            //ui.label(format!("Hello '{}', age {}", self.name, self.age));
+        //egui::CentralPanel::default().show(ctx, |ui| {
+        //    self.disassembly.iter().skip_while(|(addr, _)| *addr < self.scroll).take(NR_SHOWN_INSTRUCTIONS).for_each(|(addr, i)| {
+        //        ui.monospace(format!("{addr:04X}: {i}"));
+        //    });
+        //    //ui.image(egui::include_image!(
+        //    //    "../logo.png"
+        //    //));
+        //    //ui.heading("My egui Application");
+        //    //ui.horizontal(|ui| {
+        //    //    let name_label = ui.label("Your name: ");
+        //    //    ui.text_edit_singleline(&mut self.name)
+        //    //        .labelled_by(name_label.id);
+        //    //});
+        //    //ui.add(egui::Slider::new(&mut self.age, 0..=120).text("age"));
+        //    //if ui.button("Increment").clicked() {
+        //    //    self.age += 1;
+        //    //}
+        //    //ui.label(format!("Hello '{}', age {}", self.name, self.age));
     
-        });
+        //});
     }
 }
 

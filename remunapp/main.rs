@@ -9,7 +9,6 @@ use winit::{
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     window::{Window, WindowAttributes, WindowId},
 };
-
 use ::egui::FontDefinitions;
 use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
@@ -174,33 +173,10 @@ pub fn render(app: &mut App) -> Result<(), wgpu::SurfaceError> {
         .texture
         .create_view(&wgpu::TextureViewDescriptor::default());
 
-    // render 🐻
-    //let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-    //    label: Some("Render Pass"),
-    //    occlusion_query_set: None,
-    //    timestamp_writes: None,
-    //    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-    //        view: &view,
-    //        resolve_target: None,
-    //        ops: wgpu::Operations {
-    //            load: wgpu::LoadOp::Clear(wgpu::Color {
-    //                r: 0.1,
-    //                g: 0.2,
-    //                b: 0.3,
-    //                a: 1.0,
-    //            }),
-    //            store: wgpu::StoreOp::Store,
-    //        },
-    //    })],
-    //    depth_stencil_attachment: None,
-    //});
-
     // Begin to draw the UI frame.
-    //egui_overlay.platform.begin_frame();
     platform.begin_pass();
 
     // Draw the demo application.
-    //demo_app.ui(&platform.context());
     egui_overlay.visualizer.update(&platform.context(), state);
 
     // End the UI frame. We could now handle the output and draw the UI with the backend.
@@ -212,6 +188,30 @@ pub fn render(app: &mut App) -> Result<(), wgpu::SurfaceError> {
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("encoder"),
     });
+
+    // render 🐻
+    {
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Render Pass"),
+            occlusion_query_set: None,
+            timestamp_writes: None,
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &output_view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color {
+                        r: 0.1,
+                        g: 0.2,
+                        b: 0.3,
+                        a: 1.0,
+                    }),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+        });
+        // TODO do rendering pass here for non-egui
+    }
 
     // Upload all resources for the GPU.
     let screen_descriptor = ScreenDescriptor {
@@ -235,9 +235,9 @@ pub fn render(app: &mut App) -> Result<(), wgpu::SurfaceError> {
             Some(wgpu::Color::BLACK),
         )
         .unwrap();
+
     // Submit the commands.
     queue.submit(std::iter::once(encoder.finish()));
-
     // Redraw egui
     output_frame.present();
 
