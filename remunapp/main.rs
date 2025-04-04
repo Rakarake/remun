@@ -102,7 +102,8 @@ impl ApplicationHandler for App<'_> {
         self.egui_overlay = Some(egui_overlay);
     }
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
-        println!("{event:?}");
+        log::info!("{event:?}");
+        self.egui_overlay.as_mut().unwrap().platform.handle_event(&event);
         match event {
             WindowEvent::CloseRequested => {
                 println!("Close was requested; stopping");
