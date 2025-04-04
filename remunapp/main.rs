@@ -212,38 +212,42 @@ pub fn render(app: &mut App) -> Result<(), wgpu::SurfaceError> {
         });
         // TODO do rendering pass here for non-egui
     }
+    // Egui render pass
+    {
+        // Upload all resources for the GPU.
+        let screen_descriptor = ScreenDescriptor {
+            physical_width: width,
+            physical_height: height,
+            scale_factor: window.scale_factor() as f32,
+        };
+        let tdelta: egui::TexturesDelta = full_output.textures_delta;
+        egui_rpass
+            .add_textures(&device, &queue, &tdelta)
+            .expect("add texture ok");
+        egui_rpass.update_buffers(&device, &queue, &paint_jobs, &screen_descriptor);
 
-    // Upload all resources for the GPU.
-    let screen_descriptor = ScreenDescriptor {
-        physical_width: width,
-        physical_height: height,
-        scale_factor: window.scale_factor() as f32,
-    };
-    let tdelta: egui::TexturesDelta = full_output.textures_delta;
-    egui_rpass
-        .add_textures(&device, &queue, &tdelta)
-        .expect("add texture ok");
-    egui_rpass.update_buffers(&device, &queue, &paint_jobs, &screen_descriptor);
+        // Record all render passes.
+        egui_rpass
+            .execute(
+                &mut encoder,
+                &output_view,
+                &paint_jobs,
+                &screen_descriptor,
+                None,
+            )
+            .unwrap();
 
-    // Record all render passes.
-    egui_rpass
-        .execute(
-            &mut encoder,
-            &output_view,
-            &paint_jobs,
-            &screen_descriptor,
-            Some(wgpu::Color::BLACK),
-        )
-        .unwrap();
+        // Clean up textures
+        egui_rpass
+            .remove_textures(tdelta)
+            .expect("remove texture ok");
+
+    }
 
     // Submit the commands.
     queue.submit(std::iter::once(encoder.finish()));
     // Redraw egui
     output_frame.present();
-
-    egui_rpass
-        .remove_textures(tdelta)
-        .expect("remove texture ok");
 
     Ok(())
 }
