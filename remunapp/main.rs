@@ -29,6 +29,15 @@ struct RenderState<'window> {
     pub size: winit::dpi::PhysicalSize<u32>,
 }
 
+impl App<'_> {
+    fn new() -> Self {
+        App {
+            window: None,
+            render_state: None,
+        }
+    }
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     pretty_env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let ines = remun::load_from_file(env::args().nth(1).ok_or("please give file as argument")?)?;
@@ -36,10 +45,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let event_loop = EventLoop::new()?;
     // For alternative loop run options see `pump_events` and `run_on_demand` examples.
     //event_loop.run_app(App { window: None, render_state: None })?;
-    event_loop.run_app(&mut App {
-        window: None,
-        render_state: None,
-    })?;
+    event_loop.run_app(&mut App::new())?;
     Ok(())
 }
 
@@ -55,10 +61,9 @@ impl ApplicationHandler for App<'_> {
                 return;
             }
         };
-        let size = window.inner_size();
         let window_wrapper = Arc::new(window);
         self.window = Some(window_wrapper.clone());
-        self.render_state = Some(pollster::block_on(RenderState::new(window_wrapper, size)));
+        self.render_state = Some(pollster::block_on(RenderState::new(window_wrapper)));
     }
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
         println!("{event:?}");
@@ -99,7 +104,7 @@ impl ApplicationHandler for App<'_> {
     }
 }
 
-impl<'window> RenderState<'window> {
+impl RenderState<'_> {
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output
@@ -149,7 +154,7 @@ impl<'window> RenderState<'window> {
             log::error!("trying to resize to a size 0");
         }
     }
-    pub async fn new(window: Arc<Window>, window_dimensions: PhysicalSize<u32>) -> Self {
+    pub async fn new(window: Arc<Window>) -> Self {
         let width = window.inner_size().width;
         let height = window.inner_size().height;
         let size = window.inner_size();
