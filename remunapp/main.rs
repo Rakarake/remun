@@ -13,6 +13,7 @@ use winit::{
 use ::egui::FontDefinitions;
 use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
+use visualizer::Visualizer;
 
 mod visualizer;
 
@@ -25,7 +26,7 @@ struct App<'window> {
 struct EguiOverlay {
     platform: Platform,
     render_pass: RenderPass,
-    // TODO add egui app
+    visualizer: Visualizer,
 }
 
 struct RenderState<'window> {
@@ -88,10 +89,12 @@ impl ApplicationHandler for App<'_> {
 
         // Display the demo application that ships with egui.
         //let mut demo_app = egui_demo_lib::DemoWindows::default();
+        let visualizer = Visualizer::new();
 
         let egui_overlay = EguiOverlay {
             platform,
             render_pass,
+            visualizer,
         };
 
         self.window = Some(window_wrapper);

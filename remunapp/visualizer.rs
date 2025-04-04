@@ -10,8 +10,7 @@ use shared::AddressingMode::*;
 use shared::Opcode::*;
 use rfd::FileDialog;
 
-struct MyApp {
-    state: State,
+pub struct Visualizer {
     running: bool,
     /// Instructions per second.
     speed: u32,
@@ -22,10 +21,19 @@ struct MyApp {
 
 const NR_SHOWN_INSTRUCTIONS: usize = 30;
 
-impl MyApp {
-    fn update(&mut self, ctx: &egui::Context) {
+impl Visualizer {
+    pub fn new() -> Self {
+        Self {
+            running: false,
+            speed: 1,
+            scroll: 0,
+            following_pc: true,
+            disassembly: Vec::new(),
+        }
+    }
+    pub fn update(&mut self, ctx: &egui::Context, state: &mut State) {
         egui::SidePanel::left("left_bar").show(ctx, |ui| {
-            if let Some(data_source) = &self.state.ines.data_source {
+            if let Some(data_source) = &state.ines.data_source {
                 ui.label(format!("Loaded file: {}", data_source.display()));
             }
             if ui.button("Open ROM/assembly file").clicked() {
@@ -36,7 +44,7 @@ impl MyApp {
                 // just log the errors in the console!
                 if let Some(path) = path  {
                     match remun::load_from_file(path) {
-                        Ok(ines) => self.state = State::new(ines),
+                        Ok(ines) => *state = State::new(ines),
                         Err(e) => log::error!("{e}"),
                     }
                 } else {
@@ -44,10 +52,10 @@ impl MyApp {
                 }
             }
             if ui.button("Soft Reset").clicked() {
-                self.state.reset();
+                state.reset();
             }
             if ui.button("Hard Reset").clicked() {
-                self.state = State::new(self.state.ines.clone());
+                *state = State::new(state.ines.clone());
             }
             //ui.text_edit_singleline(&mut self.file_path);
             // TODO do both
@@ -60,20 +68,20 @@ impl MyApp {
             if ui.small_button("+").clicked() { self.scroll += 1; }
             if ui.small_button("-").clicked() { self.scroll -= 1; }
             if ui.small_button("step").clicked() {
-                self.state.run_one_instruction();
+                state.run_one_instruction();
             }
             ui.toggle_value(&mut self.running, "Running");
             ui.toggle_value(&mut self.following_pc, "Following PC");
             if self.following_pc {
                 // TODO take other banks into consideration lol
-                self.scroll = self.state.pc;
+                self.scroll = state.pc;
             }
-            ui.label(format!("A: ${:02X}", self.state.a));
-            ui.label(format!("X: ${:02X}", self.state.x));
-            ui.label(format!("Y: ${:02X}", self.state.y));
-            ui.label(format!("SR: ${:02X}", self.state.sr));
-            ui.label(format!("SP: ${:02X}", self.state.sp));
-            ui.label(format!("PC: ${:04X}", self.state.pc));
+            ui.label(format!("A: ${:02X}", state.a));
+            ui.label(format!("X: ${:02X}", state.x));
+            ui.label(format!("Y: ${:02X}", state.y));
+            ui.label(format!("SR: ${:02X}", state.sr));
+            ui.label(format!("SP: ${:02X}", state.sp));
+            ui.label(format!("PC: ${:04X}", state.pc));
         });
         egui::CentralPanel::default().show(ctx, |ui| {
             self.disassembly.iter().skip_while(|(addr, _)| *addr < self.scroll).take(NR_SHOWN_INSTRUCTIONS).for_each(|(addr, i)| {
