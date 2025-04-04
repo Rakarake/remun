@@ -47,14 +47,18 @@ impl ApplicationHandler for App<'_> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         log::info!("resuming");
         let window_attributes = WindowAttributes::default();
-        self.window = match event_loop.create_window(window_attributes) {
-            Ok(window) => Some(Arc::new(window)),
+        let window = match event_loop.create_window(window_attributes) {
+            Ok(window) => window,
             Err(err) => {
                 eprintln!("error creating window: {err}");
                 event_loop.exit();
                 return;
             }
-        }
+        };
+        let size = window.inner_size();
+        let window_wrapper = Arc::new(window);
+        self.window = Some(window_wrapper.clone());
+        self.render_state = Some(pollster::block_on(RenderState::new(window_wrapper, size)));
     }
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
         println!("{event:?}");
@@ -63,7 +67,11 @@ impl ApplicationHandler for App<'_> {
                 println!("Close was requested; stopping");
                 event_loop.exit();
             }
-            WindowEvent::Resized(_) => {
+            WindowEvent::Resized(new_size) => {
+                log::info!("resizing requested 📐");
+                if let Some(render_state) = &mut self.render_state {
+                    render_state.resize(new_size);
+                }
                 self.window
                     .as_ref()
                     .expect("resize event without a window")
@@ -71,20 +79,10 @@ impl ApplicationHandler for App<'_> {
             }
             WindowEvent::RedrawRequested => {
                 log::info!("redraw requested 👩‍🎨");
-                // Redraw the application.
-                //
-                // It's preferable for applications that do not render continuously to render in
-                // this event rather than in AboutToWait, since rendering in here allows
-                // the program to gracefully handle redraws requested by the OS.
-
                 let window = self
                     .window
                     .as_ref()
                     .expect("redraw request without a window");
-                let size = window.inner_size();
-
-                // Create render state
-                self.render_state = Some(pollster::block_on(RenderState::new(window.clone(), size)));
 
                 // Notify that you're about to draw.
                 window.pre_present_notify();
@@ -94,70 +92,13 @@ impl ApplicationHandler for App<'_> {
                 self.render_state.as_mut().unwrap().render().unwrap();
 
                 // For contiguous redraw loop you can request a redraw from here.
-                // window.request_redraw();
+                window.request_redraw();
             }
             _ => (),
         }
     }
 }
 
-//pub async fn run(state: State) {
-//    let event_loop = EventLoop::new().unwrap();
-//    let (window, window_size) = create_window(&event_loop);
-//    let mut state = RenderState::new(window, window_size).await;
-//    event_loop.run(move |event, active_event_loop| {
-//        match event {
-//            Event::WindowEvent {
-//                ref event,
-//                window_id,
-//            } if window_id == state.window.id() => {
-//                    match event {
-//                        WindowEvent::CloseRequested
-//                        //| WindowEvent::KeyboardInput {
-//                        //    input:
-//                        //        KeyboardInput {
-//                        //            state: ElementState::Pressed,
-//                        //            virtual_keycode: Some(VirtualKeyCode::Escape),
-//                        //            ..
-//                        //        },
-//                        //    ..
-//                        => *control_flow = ControlFlow::Exit,
-//                        WindowEvent::Resized(physical_size) => {
-//                            state.resize(*physical_size);
-//                            log::info!("Resized!");
-//                        }
-//                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-//                            // new_inner_size is &mut so w have to dereference it twice
-//                            state.resize(**new_inner_size);
-//                        }
-//                        _ => {}
-//                    }
-//            }
-//            Event::RedrawRequested(window_id) if window_id == state.window.id() => {
-//                //state.update();
-//                match state.render() {
-//                    Ok(_) => {}
-//                    // Reconfigure the surface if it's lost or outdated
-//                    Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
-//                        //state.resize(state.size)
-//                    }
-//                    // The system is out of memory, we should probably quit
-//                    Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-//                    // We're ignoring timeouts
-//                    Err(wgpu::SurfaceError::Timeout) => log::warn!("Surface timeout"),
-//                }
-//            }
-//            Event::MainEventsCleared => {
-//                // RedrawRequested will only trigger once, unless we manually
-//                // request it.
-//                state.window.request_redraw();
-//            }
-//            _ => {}
-//        }
-//    });
-//}
-//
-//
 impl<'window> RenderState<'window> {
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
@@ -204,6 +145,8 @@ impl<'window> RenderState<'window> {
             self.config.width = new_size.width;
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
+        } else {
+            log::error!("trying to resize to a size 0");
         }
     }
     pub async fn new(window: Arc<Window>, window_dimensions: PhysicalSize<u32>) -> Self {
