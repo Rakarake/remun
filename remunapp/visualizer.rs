@@ -1,10 +1,18 @@
 //! Visualizer of state, showing decompilation etc.
+use std::collections::BTreeMap;
+use std::sync::Arc;
+
 use asmnes::AsmnesError;
 use asmnes::Directive;
 use asmnes::Instruction;
 use asmnes::Operand::*;
 use egui;
+use egui::FontData;
+use egui::FontDefinitions;
+use egui::FontFamily;
+use egui::FontId;
 use egui::Slider;
+use egui::TextStyle;
 use remun::State;
 use shared::AddressingMode::*;
 use shared::Opcode::*;
@@ -21,8 +29,37 @@ pub struct Visualizer {
 
 const NR_SHOWN_INSTRUCTIONS: usize = 30;
 
+fn font_setup(ctx: &egui::Context) {
+    // Set fonts
+    let name = "monogram";
+    let mut fonts = egui::FontDefinitions::default();
+    fonts.font_data.insert(name.to_owned(),
+                           Arc::new(egui::FontData::from_static(include_bytes!("monogram.ttf"))));
+    fonts.families.insert(egui::FontFamily::Name("Helvetica".into()), vec!["Helvetica".to_owned()]);
+    fonts.families.get_mut(&egui::FontFamily::Proportional).unwrap() //it works
+        .insert(0, name.to_owned());
+    fonts.families.get_mut(&egui::FontFamily::Monospace).unwrap()
+        .insert(0, name.to_owned());//.push("Helvetica".to_owned());
+    ctx.set_fonts(fonts);
+
+    // Set style
+    let mut style = (*ctx.style()).clone();
+    use FontFamily::Proportional;
+    use TextStyle::*;
+    style.text_styles = [
+        (Heading, FontId::new(30.0, Proportional)),
+        (Body, FontId::new(18.0, Proportional)),
+        (Monospace, FontId::new(22.0, Proportional)),
+        (Button, FontId::new(14.0, Proportional)),
+        (Small, FontId::new(10.0, Proportional)),
+    ]
+    .into();
+    ctx.set_style(style);
+}
+
 impl Visualizer {
-    pub fn new() -> Self {
+    pub fn new(ctx: &egui::Context) -> Self {
+        font_setup(ctx);
         Self {
             running: false,
             speed: 1,
@@ -76,12 +113,12 @@ impl Visualizer {
                 // TODO take other banks into consideration lol
                 self.scroll = state.pc;
             }
-            ui.label(format!("A: ${:02X}", state.a));
-            ui.label(format!("X: ${:02X}", state.x));
-            ui.label(format!("Y: ${:02X}", state.y));
-            ui.label(format!("SR: ${:02X}", state.sr));
-            ui.label(format!("SP: ${:02X}", state.sp));
-            ui.label(format!("PC: ${:04X}", state.pc));
+            ui.monospace(format!("A: ${:02X}", state.a));
+            ui.monospace(format!("X: ${:02X}", state.x));
+            ui.monospace(format!("Y: ${:02X}", state.y));
+            ui.monospace(format!("SR: ${:02X}", state.sr));
+            ui.monospace(format!("SP: ${:02X}", state.sp));
+            ui.monospace(format!("PC: ${:04X}", state.pc));
         });
         //egui::CentralPanel::default().show(ctx, |ui| {
         //    self.disassembly.iter().skip_while(|(addr, _)| *addr < self.scroll).take(NR_SHOWN_INSTRUCTIONS).for_each(|(addr, i)| {

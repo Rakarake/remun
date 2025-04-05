@@ -93,7 +93,7 @@ impl ApplicationHandler for App<'_> {
 
         // Display the demo application that ships with egui.
         //let mut demo_app = egui_demo_lib::DemoWindows::default();
-        let visualizer = Visualizer::new();
+        let visualizer = Visualizer::new(&platform.context());
 
         let egui_overlay = EguiOverlay {
             platform,
@@ -106,7 +106,7 @@ impl ApplicationHandler for App<'_> {
         self.egui_overlay = Some(egui_overlay);
     }
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
-        log::info!("{event:?}");
+        log::trace!("{event:?}");
         self.egui_overlay.as_mut().unwrap().platform.handle_event(&event);
         match event {
             WindowEvent::CloseRequested => {
@@ -124,7 +124,6 @@ impl ApplicationHandler for App<'_> {
                     .request_redraw();
             }
             WindowEvent::RedrawRequested => {
-                log::info!("redraw requested 👩‍🎨");
                 let window = self
                     .window
                     .as_ref()
@@ -339,3 +338,4 @@ impl RenderState<'_> {
         }
     }
 }
+
