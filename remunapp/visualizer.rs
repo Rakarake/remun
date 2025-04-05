@@ -19,6 +19,7 @@ use shared::Opcode::*;
 use rfd::FileDialog;
 
 pub struct Visualizer {
+    hidden: bool,
     running: bool,
     /// Instructions per second.
     speed: u32,
@@ -47,11 +48,11 @@ fn font_setup(ctx: &egui::Context) {
     use FontFamily::Proportional;
     use TextStyle::*;
     style.text_styles = [
-        (Heading, FontId::new(30.0, Proportional)),
-        (Body, FontId::new(18.0, Proportional)),
+        (Heading, FontId::new(26.0, Proportional)),
+        (Body, FontId::new(22.0, Proportional)),
         (Monospace, FontId::new(22.0, Proportional)),
-        (Button, FontId::new(14.0, Proportional)),
-        (Small, FontId::new(10.0, Proportional)),
+        (Button, FontId::new(22.0, Proportional)),
+        (Small, FontId::new(20.0, Proportional)),
     ]
     .into();
     ctx.set_style(style);
@@ -61,6 +62,7 @@ impl Visualizer {
     pub fn new(ctx: &egui::Context) -> Self {
         font_setup(ctx);
         Self {
+            hidden: false,
             running: false,
             speed: 1,
             scroll: 0,

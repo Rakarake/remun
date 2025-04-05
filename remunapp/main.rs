@@ -21,6 +21,7 @@ struct App<'window> {
     window: Option<Arc<Window>>,
     render_state: Option<RenderState<'window>>,
     egui_overlay: Option<EguiOverlay>,
+    overlay_hidden: bool,
     start_time: Instant,
     state: State,
 }
@@ -45,6 +46,7 @@ impl App<'_> {
             window: None,
             render_state: None,
             egui_overlay: None,
+            overlay_hidden: false,
             start_time: Instant::now(),
             state,
         }
@@ -148,6 +150,13 @@ impl ApplicationHandler for App<'_> {
                 // For contiguous redraw loop you can request a redraw from here.
                 window.request_redraw();
             }
+            WindowEvent::KeyboardInput { event, .. } => {
+                use winit::event::ElementState;
+                let winit::event::KeyEvent { text, state, .. } = event;
+                if let Some(text) = text && text == "g" && state == ElementState::Pressed {
+                    self.overlay_hidden = !self.overlay_hidden;
+                }
+            },
             _ => (),
         }
     }
@@ -215,7 +224,7 @@ fn render(app: &mut App) -> Result<(), wgpu::SurfaceError> {
         // TODO do rendering pass here for non-egui
     }
     // Egui render pass
-    {
+    if !app.overlay_hidden {
         // Upload all resources for the GPU.
         let screen_descriptor = ScreenDescriptor {
             physical_width: width,
