@@ -69,6 +69,7 @@ impl Visualizer {
         }
     }
     pub fn update(&mut self, ctx: &egui::Context, state: &mut State) {
+        //egui::Window::new("hello").show(ctx, |ui| {
         egui::SidePanel::left("left_bar").show(ctx, |ui| {
             if let Some(data_source) = &state.ines.data_source {
                 ui.label(format!("Loaded file: {}", data_source.display()));
