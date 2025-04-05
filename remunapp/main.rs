@@ -1,6 +1,11 @@
 #![feature(let_chains)]
+use ::egui::FontDefinitions;
+use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
+use egui_winit_platform::{Platform, PlatformDescriptor};
 use remun::State;
+use std::time::Instant;
 use std::{env, error::Error, path::Path, sync::Arc};
+use visualizer::Visualizer;
 use wgpu::{self, InstanceFlags};
 use winit::{
     application::ApplicationHandler,
@@ -9,11 +14,6 @@ use winit::{
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     window::{Window, WindowAttributes, WindowId},
 };
-use ::egui::FontDefinitions;
-use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
-use egui_winit_platform::{Platform, PlatformDescriptor};
-use visualizer::Visualizer;
-use std::time::Instant;
 
 mod visualizer;
 
@@ -107,7 +107,11 @@ impl ApplicationHandler for App<'_> {
     }
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
         log::trace!("{event:?}");
-        self.egui_overlay.as_mut().unwrap().platform.handle_event(&event);
+        self.egui_overlay
+            .as_mut()
+            .unwrap()
+            .platform
+            .handle_event(&event);
         match event {
             WindowEvent::CloseRequested => {
                 println!("Close was requested; stopping");
@@ -239,7 +243,6 @@ fn render(app: &mut App) -> Result<(), wgpu::SurfaceError> {
         egui_rpass
             .remove_textures(tdelta)
             .expect("remove texture ok");
-
     }
 
     // Submit the commands.
@@ -338,4 +341,3 @@ impl RenderState<'_> {
         }
     }
 }
-
