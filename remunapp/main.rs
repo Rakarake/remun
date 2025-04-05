@@ -77,9 +77,9 @@ impl ApplicationHandler for App<'_> {
         let window_size = window.inner_size();
 
         // We use the egui_winit_platform crate as the platform.
-        let mut platform = Platform::new(PlatformDescriptor {
-            physical_width: window_size.width as u32,
-            physical_height: window_size.height as u32,
+        let platform = Platform::new(PlatformDescriptor {
+            physical_width: window_size.width,
+            physical_height: window_size.height,
             scale_factor: window.scale_factor(),
             font_definitions: FontDefinitions::default(),
             style: Default::default(),
@@ -89,7 +89,7 @@ impl ApplicationHandler for App<'_> {
         let render_state = pollster::block_on(RenderState::new(window_wrapper.clone()));
 
         // We use the egui_wgpu_backend crate as the render backend.
-        let mut render_pass = RenderPass::new(&render_state.device, render_state.config.format, 1);
+        let render_pass = RenderPass::new(&render_state.device, render_state.config.format, 1);
 
         // Display the demo application that ships with egui.
         //let mut demo_app = egui_demo_lib::DemoWindows::default();
@@ -134,7 +134,6 @@ impl ApplicationHandler for App<'_> {
                 window.pre_present_notify();
 
                 // Draw.
-                //fill::fill_window(window.as_ref());
                 render(self).unwrap();
 
                 // LOL do it again
@@ -151,7 +150,7 @@ impl ApplicationHandler for App<'_> {
     }
 }
 
-pub fn render(app: &mut App) -> Result<(), wgpu::SurfaceError> {
+fn render(app: &mut App) -> Result<(), wgpu::SurfaceError> {
     let egui_overlay = app.egui_overlay.as_mut().unwrap();
     let start_time = &mut app.start_time;
     let render_state = app.render_state.as_mut().unwrap();
@@ -222,9 +221,9 @@ pub fn render(app: &mut App) -> Result<(), wgpu::SurfaceError> {
         };
         let tdelta: egui::TexturesDelta = full_output.textures_delta;
         egui_rpass
-            .add_textures(&device, &queue, &tdelta)
+            .add_textures(device, queue, &tdelta)
             .expect("add texture ok");
-        egui_rpass.update_buffers(&device, &queue, &paint_jobs, &screen_descriptor);
+        egui_rpass.update_buffers(device, queue, &paint_jobs, &screen_descriptor);
 
         // Record all render passes.
         egui_rpass

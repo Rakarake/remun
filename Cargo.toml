@@ -15,7 +15,7 @@ members = [ "asmnes", "remunapp", "shared" ]
 strum = "0.26"
 strum_macros = "0.26"
 #eframe = { version = "0.31" }
-egui = "0.31.1"
+egui = "0.31"
 egui_extras = { version = "0.31", features = ["default", "image"] }
 egui_wgpu_backend = "0.34"
 egui_winit_platform = "0.26"
