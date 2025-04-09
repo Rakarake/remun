@@ -59,20 +59,26 @@ fn font_setup(ctx: &egui::Context) {
 }
 
 impl Visualizer {
-    pub fn new(ctx: &egui::Context) -> Self {
+    pub fn new(ctx: &egui::Context, state: &mut State) -> Self {
         font_setup(ctx);
+        egui_extras::install_image_loaders(ctx);
+        let disassembly = asmnes::disassemble(&(0..=u16::MAX).map(|a| state.read(a, true)).collect::<Vec<u8>>()).0
+            .iter().map(|(a, i)| (*a, i.clone())).collect();
         Self {
             hidden: false,
             running: false,
             speed: 1,
             scroll: 0,
             following_pc: true,
-            disassembly: Vec::new(),
+            disassembly,
         }
     }
     pub fn update(&mut self, ctx: &egui::Context, state: &mut State) {
         //egui::Window::new("hello").show(ctx, |ui| {
-        egui::SidePanel::left("left_bar").show(ctx, |ui| {
+        use egui::containers::Frame;
+        use egui::ecolor::Color32;
+        let frame = Frame::default().fill(Color32::from_rgba_unmultiplied(0, 0, 0, 0xF0));
+        egui::SidePanel::left("left_bar").frame(frame).show(ctx, |ui| {
             if let Some(data_source) = &state.ines.data_source {
                 ui.label(format!("Loaded file: {}", data_source.display()));
             }
@@ -122,27 +128,28 @@ impl Visualizer {
             ui.monospace(format!("SR: ${:02X}", state.sr));
             ui.monospace(format!("SP: ${:02X}", state.sp));
             ui.monospace(format!("PC: ${:04X}", state.pc));
+
+            //ui.image(egui::include_image!(
+            //    "../logo.png"
+            //));
         });
-        //egui::CentralPanel::default().show(ctx, |ui| {
-        //    self.disassembly.iter().skip_while(|(addr, _)| *addr < self.scroll).take(NR_SHOWN_INSTRUCTIONS).for_each(|(addr, i)| {
-        //        ui.monospace(format!("{addr:04X}: {i}"));
-        //    });
-        //    //ui.image(egui::include_image!(
-        //    //    "../logo.png"
-        //    //));
-        //    //ui.heading("My egui Application");
-        //    //ui.horizontal(|ui| {
-        //    //    let name_label = ui.label("Your name: ");
-        //    //    ui.text_edit_singleline(&mut self.name)
-        //    //        .labelled_by(name_label.id);
-        //    //});
-        //    //ui.add(egui::Slider::new(&mut self.age, 0..=120).text("age"));
-        //    //if ui.button("Increment").clicked() {
-        //    //    self.age += 1;
-        //    //}
-        //    //ui.label(format!("Hello '{}', age {}", self.name, self.age));
+        egui::CentralPanel::default().frame(frame).show(ctx, |ui| {
+            self.disassembly.iter().skip_while(|(addr, _)| {/*println!("{addr}");*/*addr < self.scroll }).take(NR_SHOWN_INSTRUCTIONS).for_each(|(addr, i)| {
+                ui.monospace(format!("{addr:04X}: {i}"));
+            });
+            //ui.heading("My egui Application");
+            //ui.horizontal(|ui| {
+            //    let name_label = ui.label("Your name: ");
+            //    ui.text_edit_singleline(&mut self.name)
+            //        .labelled_by(name_label.id);
+            //});
+            //ui.add(egui::Slider::new(&mut self.age, 0..=120).text("age"));
+            //if ui.button("Increment").clicked() {
+            //    self.age += 1;
+            //}
+            //ui.label(format!("Hello '{}', age {}", self.name, self.age));
     
-        //});
+        });
     }
 }
 

@@ -40,12 +40,12 @@ pub fn assemble<T: AsRef<Path>>(path: T) -> Result<Ines, AsmnesError> {
 }
 
 /// Disassembles as many bytes as possible, returns how many bytes were used
-pub fn disassemble(data: &[u8]) -> (Vec<(usize, Instruction)>, usize) {
-    let mut output: Vec<(usize, Instruction)> = Vec::new();
+pub fn disassemble(data: &[u8]) -> (Vec<(u16, Instruction)>, usize) {
+    let mut output: Vec<(u16, Instruction)> = Vec::new();
     let mut pointer = data;
     let mut addr = 0;
     while let Some((instruction, skipped)) = Instruction::from_bytes(pointer) {
-        output.push((addr, instruction));
+        output.push((addr as u16, instruction));
         pointer = &pointer[skipped..];
         addr += skipped;
     }

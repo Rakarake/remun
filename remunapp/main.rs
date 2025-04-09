@@ -95,7 +95,7 @@ impl ApplicationHandler for App<'_> {
 
         // Display the demo application that ships with egui.
         //let mut demo_app = egui_demo_lib::DemoWindows::default();
-        let visualizer = Visualizer::new(&platform.context());
+        let visualizer = Visualizer::new(&platform.context(), &mut self.state);
 
         let egui_overlay = EguiOverlay {
             platform,
