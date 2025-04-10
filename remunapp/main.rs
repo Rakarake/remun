@@ -4,14 +4,13 @@ use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
 use remun::State;
 use std::time::Instant;
-use std::{env, error::Error, path::Path, sync::Arc};
+use std::{env, error::Error, sync::Arc};
 use visualizer::Visualizer;
 use wgpu::{self, InstanceFlags};
 use winit::{
     application::ApplicationHandler,
-    dpi::PhysicalSize,
     event::*,
-    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
+    event_loop::{ActiveEventLoop, EventLoop},
     window::{Window, WindowAttributes, WindowId},
 };
 
@@ -38,6 +37,7 @@ struct RenderState<'window> {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     pub size: winit::dpi::PhysicalSize<u32>,
+    render_pipeline: wgpu::RenderPipeline,
 }
 
 impl App<'_> {
@@ -153,10 +153,13 @@ impl ApplicationHandler for App<'_> {
             WindowEvent::KeyboardInput { event, .. } => {
                 use winit::event::ElementState;
                 let winit::event::KeyEvent { text, state, .. } = event;
-                if let Some(text) = text && text == "g" && state == ElementState::Pressed {
+                if let Some(text) = text
+                    && text == "g"
+                    && state == ElementState::Pressed
+                {
                     self.overlay_hidden = !self.overlay_hidden;
                 }
-            },
+            }
             _ => (),
         }
     }
@@ -221,7 +224,8 @@ fn render(app: &mut App) -> Result<(), wgpu::SurfaceError> {
             })],
             depth_stencil_attachment: None,
         });
-        // TODO do rendering pass here for non-egui
+        render_pass.set_pipeline(&render_state.render_pipeline);
+        render_pass.draw(0..3, 0..1);
     }
     // Egui render pass
     if !app.overlay_hidden {
@@ -341,12 +345,64 @@ impl RenderState<'_> {
             view_formats: vec![],
         };
 
+        // Setup our pipeline
+        let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[],
+                push_constant_ranges: &[],
+            });
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Render Pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"), // 1.
+                buffers: &[],                 // 2.
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                // 3.
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    // 4.
+                    format: config.format,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList, // 1.
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw, // 2.
+                cull_mode: Some(wgpu::Face::Back),
+                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
+                polygon_mode: wgpu::PolygonMode::Fill,
+                // Requires Features::DEPTH_CLIP_CONTROL
+                unclipped_depth: false,
+                // Requires Features::CONSERVATIVE_RASTERIZATION
+                conservative: false,
+            },
+            depth_stencil: None, // 1.
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false, // 4.
+            },
+            multiview: None,
+            cache: None,
+        });
+
         Self {
             surface,
             device,
             queue,
             config,
             size,
+            render_pipeline,
         }
     }
 }
