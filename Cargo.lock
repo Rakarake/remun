@@ -2188,6 +2188,7 @@ name = "remunapp"
 version = "0.1.0"
 dependencies = [
  "asmnes",
+ "bytemuck",
  "egui",
  "egui_extras",
  "egui_wgpu_backend",

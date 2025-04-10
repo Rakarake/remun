@@ -25,6 +25,7 @@ rfd = "0.15.3"
 winit = "0.30"
 wgpu = "24.0"
 pollster = "*"
+bytemuck = { version = "1.22", features = [ "derive" ] }
 
 shared = { path = "shared" }
 asmnes = { path = "asmnes" }
