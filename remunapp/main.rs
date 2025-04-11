@@ -393,7 +393,7 @@ impl RenderState<'_> {
 
         // Textures
         // TODO load texture from ines bytes, 1. start with bank 3
-        let raw_texture = &ines.banks[shared::BANK_SIZE * 2..];
+        let raw_texture = &ines.banks[shared::BANK_SIZE * 4..];
         let color_lookup: [u32; 4] = [0x000000FF, 0xeb3000ff, 0x2ADD00FF, 0x46fff4ff];
         let diffuse_bytes = raw_texture.iter().array_chunks::<16>().fold(Vec::<u8>::new(), |mut acc, tile| {
             for i in 0..8 {
@@ -409,14 +409,6 @@ impl RenderState<'_> {
                     }
                 }
             }
-            //let mut b = *b;
-            //for _ in 0..4 {
-            //    let rgba = color_lookup[(b & 0b00000011) as usize].to_be_bytes();
-            //    for c in rgba {
-            //        acc.push(c);
-            //    }
-            //    b <<= 2;
-            //}
             acc
         });
         let diffuse_bytes = &diffuse_bytes[..(diffuse_bytes.len()/2)];
@@ -469,7 +461,7 @@ impl RenderState<'_> {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
+            mag_filter: wgpu::FilterMode::Nearest,
             min_filter: wgpu::FilterMode::Nearest,
             mipmap_filter: wgpu::FilterMode::Nearest,
             ..Default::default()
