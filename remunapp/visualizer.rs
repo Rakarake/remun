@@ -134,6 +134,11 @@ impl Visualizer {
             //));
         });
         egui::CentralPanel::default().frame(frame).show(ctx, |ui| {
+            let input = ctx.input(|i| i.clone()); // clone input state
+            if input.smooth_scroll_delta != egui::Vec2::ZERO {
+                println!("{:?}", input.smooth_scroll_delta);
+                self.scroll = (self.scroll as i16 - (input.smooth_scroll_delta.y / 5.) as i16) as u16;
+            }
             self.disassembly.iter().skip_while(|(addr, _)| {/*println!("{addr}");*/*addr < self.scroll }).take(NR_SHOWN_INSTRUCTIONS).for_each(|(addr, i)| {
                 ui.monospace(format!("{addr:04X}: {i}"));
             });
