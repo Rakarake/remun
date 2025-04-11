@@ -1,4 +1,4 @@
-#![feature(let_chains)]
+#![feature(let_chains, iter_array_chunks)]
 use ::egui::FontDefinitions;
 use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
@@ -14,6 +14,7 @@ use winit::{
     event_loop::{ActiveEventLoop, EventLoop},
     window::{Window, WindowAttributes, WindowId},
 };
+use shared::Ines;
 
 mod visualizer;
 
@@ -129,7 +130,7 @@ impl ApplicationHandler for App<'_> {
         });
 
         let window_wrapper = Arc::new(window);
-        let render_state = pollster::block_on(RenderState::new(window_wrapper.clone()));
+        let render_state = pollster::block_on(RenderState::new(window_wrapper.clone(), &self.state.ines));
 
         // We use the egui_wgpu_backend crate as the render backend.
         let render_pass = RenderPass::new(&render_state.device, render_state.config.format, 1);
@@ -321,7 +322,7 @@ impl RenderState<'_> {
             log::error!("trying to resize to a size 0");
         }
     }
-    pub async fn new(window: Arc<Window>) -> Self {
+    pub async fn new(window: Arc<Window>, ines: &Ines) -> Self {
         let width = window.inner_size().width;
         let height = window.inner_size().height;
         let size = window.inner_size();
@@ -391,12 +392,42 @@ impl RenderState<'_> {
 
 
         // Textures
-        let diffuse_bytes = include_bytes!("../logo.png");
-        let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
-        let diffuse_rgba = diffuse_image.to_rgba8();
+        // TODO load texture from ines bytes, 1. start with bank 3
+        let raw_texture = &ines.banks[shared::BANK_SIZE * 2..];
+        let color_lookup: [u32; 4] = [0x000000FF, 0xeb3000ff, 0x2ADD00FF, 0x46fff4ff];
+        let diffuse_bytes = raw_texture.iter().array_chunks::<16>().fold(Vec::<u8>::new(), |mut acc, tile| {
+            for i in 0..8 {
+                let mut b0 = *tile[i];
+                let mut b1 = *tile[i + 8];
+                // generate 8 colors
+                for j in 0..8 {
+                    let rgba = color_lookup[((b0 & 0b00000001) | ((b1 & 0b00000001) << 1)) as usize].to_be_bytes();
+                    b0 >>= 1;
+                    b1 >>= 1;
+                    for c in rgba {
+                        acc.push(c);
+                    }
+                }
+            }
+            //let mut b = *b;
+            //for _ in 0..4 {
+            //    let rgba = color_lookup[(b & 0b00000011) as usize].to_be_bytes();
+            //    for c in rgba {
+            //        acc.push(c);
+            //    }
+            //    b <<= 2;
+            //}
+            acc
+        });
+        let diffuse_bytes = &diffuse_bytes[..(diffuse_bytes.len()/2)];
+        //let diffuse_bytes = include_bytes!("../logo.png");
+        println!("db: {:?}", diffuse_bytes.len());
+        //println!("db2: {:?}", diffuse_bytes2.len());
+        //let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
+        //let diffuse_rgba = diffuse_image.to_rgba8();
         
-        use image::GenericImageView;
-        let dimensions = diffuse_image.dimensions();
+        //use image::GenericImageView;
+        let dimensions = (16*8, 16*8);
         let texture_size = wgpu::Extent3d {
             width: dimensions.0,
             height: dimensions.1,
@@ -423,7 +454,8 @@ impl RenderState<'_> {
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
-            &diffuse_rgba,
+            diffuse_bytes,
+            //&diffuse_rgba,
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
                 bytes_per_row: Some(4 * dimensions.0),
