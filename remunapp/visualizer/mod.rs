@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use asmnes::AsmnesError;
 use asmnes::Directive;
-use asmnes::Instruction;
 use asmnes::Operand::*;
 use egui;
 use egui::FontData;
@@ -19,25 +18,26 @@ use shared::AddressingMode::*;
 use shared::Opcode::*;
 use rfd::FileDialog;
 
+mod debugger;
+mod hex_editor;
+
+use debugger::Debugger;
+use hex_editor::HexEditor;
+
 pub struct Visualizer {
     hidden: bool,
     running: bool,
     /// Instructions per second.
     speed: u32,
-    scroll: u16,
-    following_pc: bool,
-    disassembly: Vec<(u16, Instruction)>,
     view: View,
-    hex_scroll: u16,
+    debugger: Debugger,
+    hex_editor: HexEditor,
 }
 
 enum View {
     Disassembly,
     HexEditor,
 }
-
-const NR_SHOWN_INSTRUCTIONS: usize = 40;
-const NR_SHOWN_HEX_ROWS: u16 = 40;
 
 fn font_setup(ctx: &egui::Context) {
     // Set fonts
@@ -71,17 +71,13 @@ impl Visualizer {
     pub fn new(ctx: &egui::Context, state: &mut State) -> Self {
         font_setup(ctx);
         egui_extras::install_image_loaders(ctx);
-        let disassembly = asmnes::disassemble(&(0..=u16::MAX).map(|a| state.read(a, true)).collect::<Vec<u8>>()).0
-            .iter().map(|(a, i)| (*a, i.clone())).collect();
         Self {
             hidden: false,
             running: false,
             speed: 1,
-            scroll: 0,
-            following_pc: true,
-            disassembly,
             view: View::Disassembly,
-            hex_scroll: 0xC000,
+            debugger: Debugger::new(state),
+            hex_editor: HexEditor::new(),
         }
     }
     pub fn update(&mut self, ctx: &egui::Context, state: &mut State) {
@@ -114,25 +110,10 @@ impl Visualizer {
             if ui.button("Hard Reset").clicked() {
                 *state = State::new(state.ines.clone());
             }
-            //ui.text_edit_singleline(&mut self.file_path);
-            // TODO do both
-            //if ui.button("Load File (.nes or .asm)").clicked() {
-            //    self.state = State::new(asmnes::assemble_from_file(self.file_path.as_str()).unwrap());
-            //}
-            //ui.add(Slider::new(&mut self.scroll, 0..=u16::MAX).step_by(1.0));
-            ui.label("Address");
-            integer_edit_field(ui, &mut self.scroll);
-            if ui.small_button("+").clicked() { self.scroll += 1; }
-            if ui.small_button("-").clicked() { self.scroll -= 1; }
             if ui.small_button("step").clicked() {
                 state.run_one_instruction();
             }
             ui.toggle_value(&mut self.running, "Running");
-            ui.toggle_value(&mut self.following_pc, "Following PC");
-            if self.following_pc {
-                // TODO take other banks into consideration lol
-                self.scroll = state.pc;
-            }
             ui.monospace(format!("A: ${:02X}", state.a));
             ui.monospace(format!("X: ${:02X}", state.x));
             ui.monospace(format!("Y: ${:02X}", state.y));
@@ -154,33 +135,10 @@ impl Visualizer {
             }
             match self.view {
                 View::Disassembly => {
-                    let current_scroll = self.scroll;
-                    self.disassembly.iter().skip_while(|(addr, _)| {*addr < current_scroll }).take(NR_SHOWN_INSTRUCTIONS).for_each(|(addr, i)| {
-                        let response = ui.monospace(format!("{addr:04X}: {i}"));
-                        if response.hovered() && input.smooth_scroll_delta != egui::Vec2::ZERO {
-                            println!("{:?}", input.smooth_scroll_delta);
-                            self.scroll = (self.scroll as i16 - (input.smooth_scroll_delta.y / 5.) as i16) as u16;
-                        }
-                    });
+                    self.debugger.update(ctx, ui, state);
                 },
                 View::HexEditor => {
-                    let scroll_addr = (self.hex_scroll as i16 - (input.smooth_scroll_delta.y * 2.) as i16) as u16;
-                    self.hex_scroll = scroll_addr - scroll_addr % 16;
-                    let mut addr = self.hex_scroll;
-                    for _ in 0..NR_SHOWN_HEX_ROWS {
-                        ui.horizontal(|ui| {
-                            ui.monospace(format!("{addr:04X}: "));
-                            loop {
-                                let val = state.read(addr, true);
-                                ui.monospace(format!("{val:02X}"));
-                                addr += 1;
-                                if addr % 16 == 0 {
-                                    break;
-                                }
-                            }
-                        });
-                        addr += 16;
-                    }
+                    self.hex_editor.update(ctx, ui, state);
                 },
             }
         });
