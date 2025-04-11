@@ -405,15 +405,19 @@ impl RenderState<'_> {
 
         // Textures
         // TODO load texture from ines bytes, 1. start with bank 3
-        let raw_texture = &ines.banks[shared::BANK_SIZE * 4..];
+        let raw_texture = &ines.banks[shared::BANK_SIZE * 2..(shared::BANK_SIZE * 2 + shared::BANK_SIZE/2)];
         let color_lookup: [u32; 4] = [0x000000FF, 0xeb3000ff, 0x2ADD00FF, 0x46fff4ff];
+        let mut x = 0;
         let diffuse_bytes = raw_texture.iter().array_chunks::<16>().fold(Vec::<u8>::new(), |mut acc, tile| {
+            x +=1 ;
+            println!("x: {:?}", x);
+            println!("{:?}", tile.len());
             for i in 0..8 {
                 let mut b0 = *tile[i];
                 let mut b1 = *tile[i + 8];
                 // generate 8 colors
                 for _ in 0..8 {
-                    let rgba = color_lookup[((b0 & 0b00000001) | ((b1 & 0b00000001) << 1)) as usize].to_be_bytes();
+                    let rgba = color_lookup[((b0 & 1) | ((b1 & 1) << 1)) as usize].to_be_bytes();
                     for c in rgba {
                         acc.push(c);
                     }
@@ -423,7 +427,7 @@ impl RenderState<'_> {
             }
             acc
         });
-        let diffuse_bytes = &diffuse_bytes[..(diffuse_bytes.len()/2)];
+        //let diffuse_bytes = &diffuse_bytes[..(diffuse_bytes.len()/2)];
         //let diffuse_bytes = include_bytes!("../logo.png");
         println!("db: {:?}", diffuse_bytes.len());
         //println!("db2: {:?}", diffuse_bytes2.len());
@@ -458,7 +462,7 @@ impl RenderState<'_> {
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
-            diffuse_bytes,
+            &diffuse_bytes,
             //&diffuse_rgba,
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
