@@ -11,6 +11,7 @@ use egui::FontData;
 use egui::FontDefinitions;
 use egui::FontFamily;
 use egui::FontId;
+use egui::Key;
 use egui::Slider;
 use egui::TextStyle;
 use remun::State;
@@ -26,9 +27,17 @@ pub struct Visualizer {
     scroll: u16,
     following_pc: bool,
     disassembly: Vec<(u16, Instruction)>,
+    view: View,
+    hex_scroll: u16,
 }
 
-const NR_SHOWN_INSTRUCTIONS: usize = 30;
+enum View {
+    Disassembly,
+    HexEditor,
+}
+
+const NR_SHOWN_INSTRUCTIONS: usize = 40;
+const NR_SHOWN_HEX_ROWS: u16 = 40;
 
 fn font_setup(ctx: &egui::Context) {
     // Set fonts
@@ -71,6 +80,8 @@ impl Visualizer {
             scroll: 0,
             following_pc: true,
             disassembly,
+            view: View::Disassembly,
+            hex_scroll: 0xC000,
         }
     }
     pub fn update(&mut self, ctx: &egui::Context, state: &mut State) {
@@ -134,26 +145,44 @@ impl Visualizer {
             //));
         });
         egui::CentralPanel::default().frame(frame).show(ctx, |ui| {
-            let input = ctx.input(|i| i.clone()); // clone input state
-            if input.smooth_scroll_delta != egui::Vec2::ZERO {
-                println!("{:?}", input.smooth_scroll_delta);
-                self.scroll = (self.scroll as i16 - (input.smooth_scroll_delta.y / 5.) as i16) as u16;
+            let input = ctx.input(|i| i.clone());
+            if input.key_pressed(Key::H) {
+                self.view = View::HexEditor;
             }
-            self.disassembly.iter().skip_while(|(addr, _)| {/*println!("{addr}");*/*addr < self.scroll }).take(NR_SHOWN_INSTRUCTIONS).for_each(|(addr, i)| {
-                ui.monospace(format!("{addr:04X}: {i}"));
-            });
-            //ui.heading("My egui Application");
-            //ui.horizontal(|ui| {
-            //    let name_label = ui.label("Your name: ");
-            //    ui.text_edit_singleline(&mut self.name)
-            //        .labelled_by(name_label.id);
-            //});
-            //ui.add(egui::Slider::new(&mut self.age, 0..=120).text("age"));
-            //if ui.button("Increment").clicked() {
-            //    self.age += 1;
-            //}
-            //ui.label(format!("Hello '{}', age {}", self.name, self.age));
-    
+            if input.key_pressed(Key::U) {
+                self.view = View::Disassembly;
+            }
+            match self.view {
+                View::Disassembly => {
+                    let current_scroll = self.scroll;
+                    self.disassembly.iter().skip_while(|(addr, _)| {*addr < current_scroll }).take(NR_SHOWN_INSTRUCTIONS).for_each(|(addr, i)| {
+                        let response = ui.monospace(format!("{addr:04X}: {i}"));
+                        if response.hovered() && input.smooth_scroll_delta != egui::Vec2::ZERO {
+                            println!("{:?}", input.smooth_scroll_delta);
+                            self.scroll = (self.scroll as i16 - (input.smooth_scroll_delta.y / 5.) as i16) as u16;
+                        }
+                    });
+                },
+                View::HexEditor => {
+                    let scroll_addr = (self.hex_scroll as i16 - (input.smooth_scroll_delta.y * 2.) as i16) as u16;
+                    self.hex_scroll = scroll_addr - scroll_addr % 16;
+                    let mut addr = self.hex_scroll;
+                    for _ in 0..NR_SHOWN_HEX_ROWS {
+                        ui.horizontal(|ui| {
+                            ui.monospace(format!("{addr:04X}: "));
+                            loop {
+                                let val = state.read(addr, true);
+                                ui.monospace(format!("{val:02X}"));
+                                addr += 1;
+                                if addr % 16 == 0 {
+                                    break;
+                                }
+                            }
+                        });
+                        addr += 16;
+                    }
+                },
+            }
         });
     }
 }
