@@ -407,29 +407,26 @@ impl RenderState<'_> {
         // TODO load texture from ines bytes, 1. start with bank 3
         let raw_texture = &ines.banks[shared::BANK_SIZE * 2..(shared::BANK_SIZE * 2 + shared::BANK_SIZE/2)];
         let color_lookup: [u32; 4] = [0x000000FF, 0xeb3000ff, 0x2ADD00FF, 0x46fff4ff];
-        let mut x = 0;
-        let diffuse_bytes = raw_texture.iter().array_chunks::<16>().fold(Vec::<u8>::new(), |mut acc, tile| {
-            x +=1 ;
-            println!("x: {:?}", x);
-            println!("{:?}", tile.len());
-            for i in 0..8 {
-                let mut b0 = *tile[i];
-                let mut b1 = *tile[i + 8];
+        let mut color_buffer: Vec<u8> = vec![0 ; 16 * 16 * 8 * 8 * 4];
+        raw_texture.iter().array_chunks::<16>().enumerate().for_each(|(tile_index, tile)| {
+            for row in 0..8 {
+                let mut b0 = *tile[row];
+                let mut b1 = *tile[row + 8];
                 // generate 8 colors
-                for _ in 0..8 {
+                for column in 0..8 {
                     let rgba = color_lookup[((b0 & 1) | ((b1 & 1) << 1)) as usize].to_be_bytes();
-                    for c in rgba {
-                        acc.push(c);
+                    for (color_index, color) in rgba.iter().enumerate() {
+                        let index = ((tile_index % 16) * 8 + 16*8*8*(tile_index/16) + (row*16*8) + column) * 4 + color_index;
+                        color_buffer[index] = *color;
                     }
                     b0 >>= 1;
                     b1 >>= 1;
                 }
             }
-            acc
         });
         //let diffuse_bytes = &diffuse_bytes[..(diffuse_bytes.len()/2)];
         //let diffuse_bytes = include_bytes!("../logo.png");
-        println!("db: {:?}", diffuse_bytes.len());
+        println!("db: {:?}", color_buffer.len());
         //println!("db2: {:?}", diffuse_bytes2.len());
         //let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
         //let diffuse_rgba = diffuse_image.to_rgba8();
@@ -462,7 +459,7 @@ impl RenderState<'_> {
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
-            &diffuse_bytes,
+            &color_buffer,
             //&diffuse_rgba,
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
