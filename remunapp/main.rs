@@ -407,7 +407,7 @@ impl RenderState<'_> {
         // TODO load texture from ines bytes, 1. start with bank 3
         let raw_texture = &ines.banks[shared::BANK_SIZE * 2..(shared::BANK_SIZE * 2 + shared::BANK_SIZE/2)];
         let color_lookup: [u32; 4] = [0x000000FF, 0xeb3000ff, 0x2ADD00FF, 0x46fff4ff];
-        let mut color_buffer: Vec<u8> = vec![0 ; 16 * 16 * 8 * 8 * 4];
+        let mut diffuse_rgba: Vec<u8> = vec![0 ; 16 * 16 * 8 * 8 * 4];
         raw_texture.iter().array_chunks::<16>().enumerate().for_each(|(tile_index, tile)| {
             for row in 0..8 {
                 let mut b0 = *tile[row];
@@ -416,23 +416,23 @@ impl RenderState<'_> {
                 for column in 0..8 {
                     let rgba = color_lookup[((b0 & 1) | ((b1 & 1) << 1)) as usize].to_be_bytes();
                     for (color_index, color) in rgba.iter().enumerate() {
-                        let index = ((tile_index % 16) * 8 + 16*8*8*(tile_index/16) + (row*16*8) + column) * 4 + color_index;
-                        color_buffer[index] = *color;
+                        let index = ((tile_index % 16) * 8 + 16*8*8*(tile_index/16) + (row*16*8) + 7 - column) * 4 + color_index;
+                        diffuse_rgba[index] = *color;
                     }
                     b0 >>= 1;
                     b1 >>= 1;
                 }
             }
         });
-        //let diffuse_bytes = &diffuse_bytes[..(diffuse_bytes.len()/2)];
         //let diffuse_bytes = include_bytes!("../logo.png");
-        println!("db: {:?}", color_buffer.len());
+        //println!("db: {:?}", color_buffer.len());
         //println!("db2: {:?}", diffuse_bytes2.len());
         //let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
         //let diffuse_rgba = diffuse_image.to_rgba8();
         
-        //use image::GenericImageView;
         let dimensions = (16*8, 16*8);
+        //use image::GenericImageView;
+        //let dimensions = diffuse_image.dimensions();
         let texture_size = wgpu::Extent3d {
             width: dimensions.0,
             height: dimensions.1,
@@ -459,7 +459,7 @@ impl RenderState<'_> {
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
-            &color_buffer,
+            &diffuse_rgba,
             //&diffuse_rgba,
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
