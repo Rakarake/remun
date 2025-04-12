@@ -158,3 +158,17 @@ fn integer_edit_field(ui: &mut egui::Ui, value: &mut u16) -> egui::Response {
     }
     res
 }
+
+fn scroll_area(ctx: &egui::Context, ui: &mut egui::Ui, scroll: &mut usize, cursor: &mut u16) {
+    ui.label("Cursor");
+    ui.horizontal(|ui| {
+        if ui.small_button("-").clicked() { *cursor -= 1; }
+        crate::visualizer::integer_edit_field(ui, &mut *cursor);
+        if ui.small_button("+").clicked() { *cursor += 1; }
+    });
+    let input = ctx.input(|i| i.clone());
+    let new_line_number = *scroll as isize - (input.smooth_scroll_delta.y / 5.) as isize;
+    if new_line_number >= 0 { *scroll = new_line_number as usize }
+}
+
+
