@@ -132,7 +132,7 @@ impl Visualizer {
             if input.key_pressed(Key::H) {
                 self.view = View::HexEditor;
             }
-            if input.key_pressed(Key::U) {
+            if input.key_pressed(Key::Y) {
                 self.view = View::Disassembly;
             }
             match self.view {
@@ -148,10 +148,10 @@ impl Visualizer {
 }
 
 // slightly ugly way to input only valid numbers: https://github.com/emilk/egui/issues/1348#issuecomment-1652168882
-fn integer_edit_field(ui: &mut egui::Ui, value: &mut u16) -> egui::Response {
+fn integer_edit_field(ui: &mut egui::Ui, value: &mut u64) -> egui::Response {
     let mut tmp_value = format!("{:X}", value);
     let res = ui.text_edit_singleline(&mut tmp_value);
-    if let Ok(result) = u16::from_str_radix(&tmp_value, 16) {
+    if let Ok(result) = u64::from_str_radix(&tmp_value, 16) {
         *value = result;
     } else {
         *value = 0;
@@ -159,7 +159,7 @@ fn integer_edit_field(ui: &mut egui::Ui, value: &mut u16) -> egui::Response {
     res
 }
 
-fn scroll_area(ctx: &egui::Context, ui: &mut egui::Ui, scroll: &mut usize, cursor: &mut u16) {
+fn scroll_area(ctx: &egui::Context, ui: &mut egui::Ui, scroll: &mut usize, cursor: &mut u64) {
     ui.label("Cursor");
     ui.horizontal(|ui| {
         if ui.small_button("-").clicked() { *cursor -= 1; }
