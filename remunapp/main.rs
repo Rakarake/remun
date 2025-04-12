@@ -404,11 +404,14 @@ impl RenderState<'_> {
 
 
         // Textures
-        // TODO load texture from ines bytes, 1. start with bank 3
+        // the memory layout of the pattern tables: https://www.nesdev.org/wiki/PPU_pattern_tables
         let raw_texture = &ines.banks[shared::BANK_SIZE * 2..(shared::BANK_SIZE * 2 + shared::BANK_SIZE/2)];
         let color_lookup: [u32; 4] = [0x000000FF, 0xeb3000ff, 0x2ADD00FF, 0x46fff4ff];
         let mut diffuse_rgba: Vec<u8> = vec![0 ; 16 * 16 * 8 * 8 * 4];
         raw_texture.iter().array_chunks::<16>().enumerate().for_each(|(tile_index, tile)| {
+            // NOTE changes the texture so it conforms with the standard way of displaying pattern
+            // tables.
+            let tile_index = tile_index / 2 + (16 * (tile_index % 2)) + ((tile_index / 32) * 16);
             for row in 0..8 {
                 let mut b0 = *tile[row];
                 let mut b1 = *tile[row + 8];
@@ -416,7 +419,11 @@ impl RenderState<'_> {
                 for column in 0..8 {
                     let rgba = color_lookup[((b0 & 1) | ((b1 & 1) << 1)) as usize].to_be_bytes();
                     for (color_index, color) in rgba.iter().enumerate() {
-                        let index = ((tile_index % 16) * 8 + 16*8*8*(tile_index/16) + (row*16*8) + 7 - column) * 4 + color_index;
+                        // the following offsets are in pixels
+                        let tile_x_offset = (tile_index % 16) * 8;
+                        let tile_y_offset = 16 * 8 * 8 * (tile_index / 16);
+                        let row_offset = row * 16 * 8 + 7;
+                        let index = (tile_x_offset + tile_y_offset + row_offset - column) * 4 + color_index;
                         diffuse_rgba[index] = *color;
                     }
                     b0 >>= 1;
