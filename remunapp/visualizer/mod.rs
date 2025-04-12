@@ -6,6 +6,7 @@ use asmnes::AsmnesError;
 use asmnes::Directive;
 use asmnes::Operand::*;
 use egui;
+use egui::Color32;
 use egui::FontData;
 use egui::FontDefinitions;
 use egui::FontFamily;
@@ -64,6 +65,7 @@ fn font_setup(ctx: &egui::Context) {
         (Small, FontId::new(20.0, Proportional)),
     ]
     .into();
+    style.visuals.override_text_color = Some(Color32::WHITE);
     ctx.set_style(style);
 }
 
