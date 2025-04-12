@@ -15,7 +15,11 @@ impl HexEditor {
     }
     pub fn update(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, state: &mut State) {
         ui.label("Address");
-        crate::visualizer::integer_edit_field(ui, &mut self.scroll);
+        ui.horizontal(|ui| {
+            if ui.small_button("-").clicked() { self.scroll -= 1; }
+            crate::visualizer::integer_edit_field(ui, &mut self.scroll);
+            if ui.small_button("+").clicked() { self.scroll += 1; }
+        });
         let input = ctx.input(|i| i.clone());
         let scroll_addr = (self.scroll as i16 - (input.smooth_scroll_delta.y * 2.) as i16) as u16;
         self.scroll = scroll_addr - scroll_addr % 16;

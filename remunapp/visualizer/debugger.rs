@@ -30,18 +30,20 @@ impl Debugger {
         }
         let input = ctx.input(|i| i.clone());
         let new_line_number = self.line_number as isize - (input.smooth_scroll_delta.y / 5.) as isize;
-        if input.key_down(egui::Key::Enter) {
-            self.line_number = self.cursor;
-        }
         if new_line_number >= 0 { self.line_number = new_line_number as usize }
+        if input.key_pressed(egui::Key::Enter) || self.following_pc {
+            if let Some(ln) = self.disassembly.iter().position(|(addr, _)| *addr >= self.cursor) {
+                self.line_number = ln;
+            }
+        }
         self.disassembly[self.line_number..(self.line_number+NR_ROWS)].iter().for_each(|(addr, i)| {
-            if *addr == self.cursor {
-                ui.monospace(RichText::new(format!("{addr:04X}: {i}")).monospace().color(Color32::GREEN));
+            if self.cursor >= *addr && self.cursor <= *addr + (i.1.arity() as u16) {
+                ui.label(RichText::new(format!("{addr:04X}: {i}")).color(Color32::GREEN));
+            } else if state.pc >= *addr && state.pc <= *addr + (i.1.arity() as u16) {
+                ui.label(RichText::new(format!("{addr:04X}: {i}")).color(Color32::YELLOW));
+            } else {
+                ui.monospace(format!("{addr:04X}: {i}"));
             }
-            if *addr == state.pc {
-                ui.monospace(RichText::new(format!("{addr:04X}: {i}")).monospace().color(Color32::YELLOW));
-            }
-            ui.monospace(format!("{addr:04X}: {i}"));
         });
     }
 }
