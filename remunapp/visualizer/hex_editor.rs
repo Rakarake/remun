@@ -18,6 +18,10 @@ impl HexEditor {
     }
     pub fn update(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, state: &mut State) {
         crate::visualizer::scroll_area(ctx, ui, &mut self.line_number, &mut self.cursor);
+        let input = ctx.input(|i| i.clone());
+        if input.key_pressed(egui::Key::Enter) {
+            self.line_number = self.cursor as usize / 16;
+        }
         let mut addr = self.line_number as u16 * 16;
         for _ in 0..NR_ROWS {
             ui.horizontal(|ui| {
