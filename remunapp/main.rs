@@ -3,10 +3,11 @@ use ::egui::FontDefinitions;
 use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};
 use remun::State;
-use wgpu::util::DeviceExt;
+use shared::Ines;
 use std::time::Instant;
 use std::{env, error::Error, sync::Arc};
 use visualizer::Visualizer;
+use wgpu::util::DeviceExt;
 use wgpu::{self, InstanceFlags};
 use winit::{
     application::ApplicationHandler,
@@ -14,7 +15,6 @@ use winit::{
     event_loop::{ActiveEventLoop, EventLoop},
     window::{Window, WindowAttributes, WindowId},
 };
-use shared::Ines;
 
 mod visualizer;
 
@@ -83,16 +83,25 @@ impl Vertex {
 //];
 const VERTICES: &[Vertex] = &[
     // top left
-    Vertex { position: [-1., 1., 0.0], tex_coords: [0.0, 0.0], },
-    Vertex { position: [-1., -1., 0.0], tex_coords: [0.0, 1.0], },
-    Vertex { position: [1., -1., 0.0], tex_coords: [1.0, 1.0], },
-    Vertex { position: [1., 1., 0.0], tex_coords: [1.0, 0.0], },
+    Vertex {
+        position: [-1., 1., 0.0],
+        tex_coords: [0.0, 0.0],
+    },
+    Vertex {
+        position: [-1., -1., 0.0],
+        tex_coords: [0.0, 1.0],
+    },
+    Vertex {
+        position: [1., -1., 0.0],
+        tex_coords: [1.0, 1.0],
+    },
+    Vertex {
+        position: [1., 1., 0.0],
+        tex_coords: [1.0, 0.0],
+    },
 ];
 
-const INDICES: &[u16] = &[
-    0, 1, 2,
-    2, 3, 0,
-];
+const INDICES: &[u16] = &[0, 1, 2, 2, 3, 0];
 
 impl App<'_> {
     fn new(state: State) -> Self {
@@ -142,7 +151,8 @@ impl ApplicationHandler for App<'_> {
         });
 
         let window_wrapper = Arc::new(window);
-        let render_state = pollster::block_on(RenderState::new(window_wrapper.clone(), &self.state.ines));
+        let render_state =
+            pollster::block_on(RenderState::new(window_wrapper.clone(), &self.state.ines));
 
         // We use the egui_wgpu_backend crate as the render backend.
         let render_pass = RenderPass::new(&render_state.device, render_state.config.format, 1);
@@ -281,7 +291,10 @@ fn render(app: &mut App) -> Result<(), wgpu::SurfaceError> {
         render_pass.set_pipeline(&render_state.render_pipeline);
         render_pass.set_bind_group(0, &render_state.diffuse_bind_group, &[]);
         render_pass.set_vertex_buffer(0, render_state.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(render_state.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+        render_pass.set_index_buffer(
+            render_state.index_buffer.slice(..),
+            wgpu::IndexFormat::Uint16,
+        );
         render_pass.draw_indexed(0..(INDICES.len() as u32), 0, 0..1);
     }
     // Egui render pass
@@ -402,42 +415,49 @@ impl RenderState<'_> {
             view_formats: vec![],
         };
 
-
         // Textures
         // the memory layout of the pattern tables: https://www.nesdev.org/wiki/PPU_pattern_tables
-        let raw_texture = &ines.banks[shared::BANK_SIZE * 2..(shared::BANK_SIZE * 2 + shared::BANK_SIZE/2)];
+        let chr_bank_start = shared::BANK_SIZE * (ines.inesprg as usize * 2);
+        let raw_texture = &ines.banks[chr_bank_start..chr_bank_start + shared::BANK_SIZE / 2];
         let color_lookup: [u32; 4] = [0x000000FF, 0xeb3000ff, 0x2ADD00FF, 0x46fff4ff];
-        let mut diffuse_rgba: Vec<u8> = vec![0 ; 16 * 16 * 8 * 8 * 4];
-        raw_texture.iter().array_chunks::<16>().enumerate().for_each(|(tile_index, tile)| {
-            // NOTE changes the texture so it conforms with the standard way of displaying pattern
-            // tables.
-            let tile_index = tile_index / 2 + (16 * (tile_index % 2)) + ((tile_index / 32) * 16);
-            for row in 0..8 {
-                let mut b0 = *tile[row];
-                let mut b1 = *tile[row + 8];
-                // generate 8 colors
-                for column in 0..8 {
-                    let rgba = color_lookup[((b0 & 1) | ((b1 & 1) << 1)) as usize].to_be_bytes();
-                    for (color_index, color) in rgba.iter().enumerate() {
-                        // the following offsets are in pixels
-                        let tile_x_offset = (tile_index % 16) * 8;
-                        let tile_y_offset = 16 * 8 * 8 * (tile_index / 16);
-                        let row_offset = row * 16 * 8 + 7;
-                        let index = (tile_x_offset + tile_y_offset + row_offset - column) * 4 + color_index;
-                        diffuse_rgba[index] = *color;
+        let mut diffuse_rgba: Vec<u8> = vec![0; 16 * 16 * 8 * 8 * 4];
+        raw_texture
+            .iter()
+            .array_chunks::<16>()
+            .enumerate()
+            .for_each(|(tile_index, tile)| {
+                // NOTE changes the texture so it conforms with the standard way of displaying pattern
+                // tables.
+                let tile_index =
+                    tile_index / 2 + (16 * (tile_index % 2)) + ((tile_index / 32) * 16);
+                for row in 0..8 {
+                    let mut b0 = *tile[row];
+                    let mut b1 = *tile[row + 8];
+                    // generate 8 colors
+                    for column in 0..8 {
+                        let rgba =
+                            color_lookup[((b0 & 1) | ((b1 & 1) << 1)) as usize].to_be_bytes();
+                        for (color_index, color) in rgba.iter().enumerate() {
+                            // the following offsets are in pixels
+                            let tile_x_offset = (tile_index % 16) * 8;
+                            let tile_y_offset = 16 * 8 * 8 * (tile_index / 16);
+                            let row_offset = row * 16 * 8 + 7;
+                            let index = (tile_x_offset + tile_y_offset + row_offset - column) * 4
+                                + color_index;
+                            diffuse_rgba[index] = *color;
+                        }
+                        b0 >>= 1;
+                        b1 >>= 1;
                     }
-                    b0 >>= 1;
-                    b1 >>= 1;
                 }
-            }
-        });
+            });
         //let diffuse_bytes = include_bytes!("../logo.png");
         //println!("db: {:?}", color_buffer.len());
         //println!("db2: {:?}", diffuse_bytes2.len());
         //let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
         //let diffuse_rgba = diffuse_image.to_rgba8();
-        
-        let dimensions = (16*8, 16*8);
+
+        let dimensions = (16 * 8, 16 * 8);
         //use image::GenericImageView;
         //let dimensions = diffuse_image.dimensions();
         let texture_size = wgpu::Extent3d {
@@ -445,18 +465,16 @@ impl RenderState<'_> {
             height: dimensions.1,
             depth_or_array_layers: 1,
         };
-        let diffuse_texture = device.create_texture(
-            &wgpu::TextureDescriptor {
-                size: texture_size,
-                mip_level_count: 1, // We'll talk about this a little later
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-                label: Some("diffuse_texture"),
-                view_formats: &[],
-            }
-        );
+        let diffuse_texture = device.create_texture(&wgpu::TextureDescriptor {
+            size: texture_size,
+            mip_level_count: 1, // We'll talk about this a little later
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            label: Some("diffuse_texture"),
+            view_formats: &[],
+        });
 
         // write texture to gpu
         queue.write_texture(
@@ -476,7 +494,8 @@ impl RenderState<'_> {
             texture_size,
         );
 
-        let diffuse_texture_view = diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let diffuse_texture_view =
+            diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let diffuse_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -488,48 +507,44 @@ impl RenderState<'_> {
         });
 
         let texture_bind_group_layout =
-                    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                        entries: &[
-                            wgpu::BindGroupLayoutEntry {
-                                binding: 0,
-                                visibility: wgpu::ShaderStages::FRAGMENT,
-                                ty: wgpu::BindingType::Texture {
-                                    multisampled: false,
-                                    view_dimension: wgpu::TextureViewDimension::D2,
-                                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                                },
-                                count: None,
-                            },
-                            wgpu::BindGroupLayoutEntry {
-                                binding: 1,
-                                visibility: wgpu::ShaderStages::FRAGMENT,
-                                // This should match the filterable field of the
-                                // corresponding Texture entry above.
-                                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                                count: None,
-                            },
-                        ],
-                        label: Some("texture_bind_group_layout"),
-                    });
-
-        let diffuse_bind_group = device.create_bind_group(
-            &wgpu::BindGroupDescriptor {
-                layout: &texture_bind_group_layout,
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[
-                    wgpu::BindGroupEntry {
+                    wgpu::BindGroupLayoutEntry {
                         binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&diffuse_texture_view),
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
                     },
-                    wgpu::BindGroupEntry {
+                    wgpu::BindGroupLayoutEntry {
                         binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&diffuse_sampler),
-                    }
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        // This should match the filterable field of the
+                        // corresponding Texture entry above.
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
                 ],
-                label: Some("diffuse_bind_group"),
-            }
-        );
+                label: Some("texture_bind_group_layout"),
+            });
 
-
+        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&diffuse_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&diffuse_sampler),
+                },
+            ],
+            label: Some("diffuse_bind_group"),
+        });
 
         // Setup our pipeline
         let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
@@ -545,7 +560,7 @@ impl RenderState<'_> {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
-                buffers: &[ Vertex::desc() ],
+                buffers: &[Vertex::desc()],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -582,20 +597,16 @@ impl RenderState<'_> {
             cache: None,
         });
 
-        let vertex_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(VERTICES),
-                usage: wgpu::BufferUsages::VERTEX,
-            }
-        );
-        let index_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(INDICES),
-                usage: wgpu::BufferUsages::INDEX,
-            }
-        );
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(VERTICES),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: bytemuck::cast_slice(INDICES),
+            usage: wgpu::BufferUsages::INDEX,
+        });
 
         Self {
             surface,
