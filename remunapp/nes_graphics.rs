@@ -7,7 +7,7 @@ use shared::Ines;
 use wgpu::{util::DeviceExt, BufferDescriptor, Queue, RenderPass};
 
 // f32 * vertex * quad * (nr_sprites + background + foreground)
-//const VERTEX_BUFFER_SIZE: usize = 4 * 4 * 4 * (64 + )
+const VERTEX_BUFFER_SIZE: usize = 4 * 4 * 4 * (64 + 31*29);
 
 // index buffer always the same
 const SQUARE_INDICES: &[u16] = &[0, 1, 2, 2, 3, 0];
