@@ -118,8 +118,11 @@ impl NesGraphics {
         //    capturable.unmap();
         //}
         //});
+
+        // clear buffer (unecessary)
+        queue.write_buffer(&self.vertex_buffer, 0, &[0; (4 * 5) * 4 * (64 + 2)]);
         queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(WHOLE_SCREEN_VERTICES));
-        queue.write_buffer(&self.vertex_buffer, 5 * 4 * 4, bytemuck::cast_slice(TEST_2_VERT));
+        queue.write_buffer(&self.vertex_buffer, 5 * 4 * 6, bytemuck::cast_slice(TEST_2_VERT));
     }
     
     pub fn new(device: &wgpu::Device, queue: &Queue, ines: &Ines, config: &wgpu::SurfaceConfiguration) -> Self {
@@ -135,9 +138,15 @@ impl NesGraphics {
         // index buffer
         // create buffer here 
         let mut index_buffer_cpu: [u16; 6 * (64 + 2)] = [0; 6 * (64 + 2)];
+        //for (i,v) in SQUARE_INDICES.iter().enumerate() {
+        //    index_buffer_cpu[i] = *v;
+        //}
+        //for (i,v) in SQUARE_INDICES.iter().enumerate() {
+        //    index_buffer_cpu[i + 6] = *v + 3;
+        //}
         [SQUARE_INDICES; 64 + 2].iter().enumerate().for_each(|(square_index, square_indices)| {
             square_indices.iter().enumerate().for_each(|(index_index, vertex_index)| {
-                index_buffer_cpu[square_index * 6 + index_index] = square_index as u16 * 6 + *vertex_index;
+                index_buffer_cpu[square_index * 6 + index_index] = square_index as u16 * 3 + *vertex_index;
             });
         });
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
