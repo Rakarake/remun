@@ -28,6 +28,26 @@ const WHOLE_SCREEN_VERTICES: &[Vertex] = &[
     },
 ];
 
+const TEST_2_VERT: &[Vertex] = &[
+    // top left
+    Vertex {
+        position: [-0.5, 0.5, 0.0],
+        tex_coords: [0.0, 0.0],
+    },
+    Vertex {
+        position: [-0.5, -0.5, 0.0],
+        tex_coords: [0.0, 1.0],
+    },
+    Vertex {
+        position: [0.5, -0.5, 0.0],
+        tex_coords: [1.0, 1.0],
+    },
+    Vertex {
+        position: [0.5, 0.5, 0.0],
+        tex_coords: [1.0, 0.0],
+    },
+];
+
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -99,6 +119,7 @@ impl NesGraphics {
         //}
         //});
         queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(WHOLE_SCREEN_VERTICES));
+        queue.write_buffer(&self.vertex_buffer, 5 * 4 * 4, bytemuck::cast_slice(TEST_2_VERT));
     }
     
     pub fn new(device: &wgpu::Device, queue: &Queue, ines: &Ines, config: &wgpu::SurfaceConfiguration) -> Self {
