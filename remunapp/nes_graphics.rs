@@ -1,9 +1,13 @@
 // assumptions:
 // * same bind group
-// * 1 draw call, indecies are sorted for draw priority
+// * 1 draw call
+// everything is stored in a consecutive buffer
 
 use shared::Ines;
 use wgpu::{util::DeviceExt, BufferDescriptor, Queue, RenderPass};
+
+// f32 * vertex * quad * (nr_sprites + background + foreground)
+//const VERTEX_BUFFER_SIZE: usize = 4 * 4 * 4 * (64 + )
 
 // index buffer always the same
 const SQUARE_INDICES: &[u16] = &[0, 1, 2, 2, 3, 0];
@@ -11,19 +15,19 @@ const SQUARE_INDICES: &[u16] = &[0, 1, 2, 2, 3, 0];
 const WHOLE_SCREEN_VERTICES: &[Vertex] = &[
     // top left
     Vertex {
-        position: [-1., 1., 0.0],
+        position: [-1., 1.],
         tex_coords: [0.0, 0.0],
     },
     Vertex {
-        position: [-1., -1., 0.0],
+        position: [-1., -1.],
         tex_coords: [0.0, 1.0],
     },
     Vertex {
-        position: [1., -1., 0.0],
+        position: [1., -1.],
         tex_coords: [1.0, 1.0],
     },
     Vertex {
-        position: [1., 1., 0.0],
+        position: [1., 1.],
         tex_coords: [1.0, 0.0],
     },
 ];
@@ -31,19 +35,19 @@ const WHOLE_SCREEN_VERTICES: &[Vertex] = &[
 const TEST_2_VERT: &[Vertex] = &[
     // top left
     Vertex {
-        position: [-0.5, 0.5, 0.0],
+        position: [-0.5, 0.5],
         tex_coords: [0.0, 0.0],
     },
     Vertex {
-        position: [-0.5, -0.5, 0.0],
+        position: [-0.5, -0.5],
         tex_coords: [0.0, 1.0],
     },
     Vertex {
-        position: [0.5, -0.5, 0.0],
+        position: [0.5, -0.5],
         tex_coords: [1.0, 1.0],
     },
     Vertex {
-        position: [0.5, 0.5, 0.0],
+        position: [0.5, 0.5],
         tex_coords: [1.0, 0.0],
     },
 ];
@@ -52,12 +56,12 @@ const TEST_2_VERT: &[Vertex] = &[
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
-    pub position: [f32; 3],
+    pub position: [f32; 2],
     pub tex_coords: [f32; 2],
 }
 impl Vertex {
     const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2];
+        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2];
 
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         use std::mem;
@@ -70,10 +74,9 @@ impl Vertex {
     }
 }
 
-// store 
 pub struct NesGraphics {
-    // background, sprites, foreground (or reverse idk)
-    // everyting drawin in order
+    // background, sprites, foreground
+    // everything drawn in order
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     render_pipeline: wgpu::RenderPipeline,
@@ -81,12 +84,6 @@ pub struct NesGraphics {
 }
 impl NesGraphics {
     pub fn draw(&self, render_pass: &mut RenderPass) {
-        // render
-        //render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        //render_pass.set_index_buffer(
-        //    self.index_buffer.slice(..),
-        //    wgpu::IndexFormat::Uint16,
-        //);
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
@@ -98,52 +95,27 @@ impl NesGraphics {
     }
 
     pub fn update_buffers(&self, queue: &Queue) {
-        //// update vertex buffer
-        //{
-        //    let mut view = self.vertex_buffer.slice(0..(4*5*4)).get_mapped_range_mut();
-        //    let floats: &mut [f32] = bytemuck::cast_slice_mut(&mut view);
-        //    let to_write: &[f32] = bytemuck::cast_slice(WHOLE_SCREEN_VERTICES);
-        //    floats.copy_from_slice(to_write);
-        //    //drop(floats);
-        //}
-        //self.vertex_buffer.unmap();
-        //let buffer = std::sync::Arc::new(self.vertex_buffer);
-        //let capturable = buffer.clone();
-        //buffer.slice(..).map_async(wgpu::MapMode::Write, move |result| {
-        //if result.is_ok() {
-        //    let mut view = capturable.slice(..).get_mapped_range_mut();
-        //    let floats: &mut [f32] = bytemuck::cast_slice_mut(&mut view);
-        //    floats.fill(42.0);
-        //    drop(view);
-        //    capturable.unmap();
-        //}
-        //});
-
-        // clear buffer (unecessary)
-        queue.write_buffer(&self.vertex_buffer, 0, &[0; (4 * 5) * 4 * (64 + 2)]);
+        // clear buffer (unnecessary)
+        queue.write_buffer(&self.vertex_buffer, 0, &[0; (4 * 4) * 4 * (64 + 2)]);
+        // testing quads
         queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(WHOLE_SCREEN_VERTICES));
-        queue.write_buffer(&self.vertex_buffer, 5 * 4 * 6, bytemuck::cast_slice(TEST_2_VERT));
+        queue.write_buffer(&self.vertex_buffer, 4 * 4 * 6, bytemuck::cast_slice(TEST_2_VERT));
     }
     
     pub fn new(device: &wgpu::Device, queue: &Queue, ines: &Ines, config: &wgpu::SurfaceConfiguration) -> Self {
+
         // vertex buffer
-        // 4 * 5 bytes per vertex, 4 vertices per quad, 64 + 2 quads
-        let size = (4 * 5) * 4 * (64 + 2);
+        // 4 * 4 bytes per vertex, 4 vertices per quad, 64 + 2 quads
+        let size = (4 * 4) * 4 * (64 + 2);
         let vertex_buffer = device.create_buffer(&BufferDescriptor {
             label: Some("gleeby goo"),
             size,
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
+
         // index buffer
-        // create buffer here 
         let mut index_buffer_cpu: [u16; 6 * (64 + 2)] = [0; 6 * (64 + 2)];
-        //for (i,v) in SQUARE_INDICES.iter().enumerate() {
-        //    index_buffer_cpu[i] = *v;
-        //}
-        //for (i,v) in SQUARE_INDICES.iter().enumerate() {
-        //    index_buffer_cpu[i + 6] = *v + 3;
-        //}
         [SQUARE_INDICES; 64 + 2].iter().enumerate().for_each(|(square_index, square_indices)| {
             square_indices.iter().enumerate().for_each(|(index_index, vertex_index)| {
                 index_buffer_cpu[square_index * 6 + index_index] = square_index as u16 * 3 + *vertex_index;
@@ -191,15 +163,8 @@ impl NesGraphics {
                     }
                 }
             });
-        //let diffuse_bytes = include_bytes!("../logo.png");
-        //println!("db: {:?}", color_buffer.len());
-        //println!("db2: {:?}", diffuse_bytes2.len());
-        //let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
-        //let diffuse_rgba = diffuse_image.to_rgba8();
 
         let dimensions = (16 * 8, 16 * 8);
-        //use image::GenericImageView;
-        //let dimensions = diffuse_image.dimensions();
         let texture_size = wgpu::Extent3d {
             width: dimensions.0,
             height: dimensions.1,
@@ -304,11 +269,9 @@ impl NesGraphics {
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
-                // 3.
                 module: &shader,
                 entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
-                    // 4.
                     format: config.format,
                     blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
@@ -316,22 +279,19 @@ impl NesGraphics {
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
             primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList, // 1.
+                topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw, // 2.
+                front_face: wgpu::FrontFace::Ccw,
                 cull_mode: Some(wgpu::Face::Back),
-                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
                 polygon_mode: wgpu::PolygonMode::Fill,
-                // Requires Features::DEPTH_CLIP_CONTROL
                 unclipped_depth: false,
-                // Requires Features::CONSERVATIVE_RASTERIZATION
                 conservative: false,
             },
-            depth_stencil: None, // 1.
+            depth_stencil: None,
             multisample: wgpu::MultisampleState {
                 count: 1,
                 mask: !0,
-                alpha_to_coverage_enabled: false, // 4.
+                alpha_to_coverage_enabled: false,
             },
             multiview: None,
             cache: None,
