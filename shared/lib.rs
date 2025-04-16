@@ -198,10 +198,12 @@ pub mod flags {
 
 /// The system vecotrs (memory locations where the program jumps when encountering
 /// interrupts).
+/// https://www.nesdev.org/wiki/CPU_interrupts
 pub mod vectors {
     pub const NMI: u16 = 0xFFFA;
     pub const RESET: u16 = 0xFFFC;
     pub const IRQ: u16 = 0xFFFE;
+    pub const BRK: u16 = 0xFFFE;
 }
 
 impl AddressingMode {

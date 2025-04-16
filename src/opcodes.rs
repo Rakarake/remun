@@ -235,16 +235,16 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                 // Return from subroutine
                 RTS => {
                     pull_pc(state);
-                    state.pc += 1;
+                    state.inc_pc();
                 }
 
                 // Break: initiate software interrupt
                 BRK => {
                     // Skipping byte representing the reason for the interrupt
-                    state.pc += 1;
+                    state.inc_pc();
                     push_pc(state);
                     push!(state.sr | flags::B | flags::I);
-                    state.pc = shared::vectors::IRQ;
+                    state.pc = state.read_u16(shared::vectors::BRK);
                 }
 
                 NOP => {},

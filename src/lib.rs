@@ -285,11 +285,22 @@ cycles: {}\
         }
     }
 
+    pub fn read_u16(&mut self, val: u16) -> u16 {
+        let lo = self.read(val, false) as u16;
+        let hi = self.read(val + 1, false) as u16;
+        (hi << 8) | lo
+    }
+
     /// A soft reset.
     pub fn reset(&mut self) {
-        let lo = self.read(shared::vectors::RESET, true) as u16;
-        let hi = self.read(shared::vectors::RESET + 1, true) as u16;
-        self.pc = (hi << 8) | lo;
+        let new_pc: u16 = self.read_u16(shared::vectors::RESET);
+        self.pc = new_pc;
+    }
+
+    /// Helper.
+    pub fn inc_pc(&mut self) {
+        let (new_pc, _) = self.pc.overflowing_add(1);
+        self.pc = new_pc;
     }
 }
 
