@@ -4,6 +4,7 @@ pub mod memory;
 pub mod opcodes;
 
 use std::error::Error;
+use std::ops::RangeInclusive;
 use std::path::Path;
 use std::path::PathBuf;
 use std::usize;
@@ -181,15 +182,18 @@ impl State {
                 }
             );
         }
-        // chr
+        // 8KiB pattern memory
         memory.push(MemoryMap {
             memory_regions: vec![MemoryRegion {
                 address_space: AddressSpace::PPU,
                 // TODO when working with the ppu
-                range: Range(0x0000, 0x0000),
+                range: Range(0x0000, 0x1FFF),
             }],
             device: Device::ROM(if ines.inesprg == 1 {3} else {5}),
         });
+//        // Nametables
+//        let nametables_size: RangeInclusive<u16> = 0x2000..=0x3EFF;
+//
         let mut state = Self {
             pc,
             a,
@@ -250,38 +254,53 @@ cycles: {}\
         );
     }
 
-    /// If "read_only" is set, the read has no affect on the state of the system.
     pub fn read(&mut self, address: u16, read_only: bool) -> u8 {
-        if !read_only {
-            debug!("read: {:#06X}", address);
-        }
-        if let Some((d, r)) = try_address(&mut self.memory, AddressSpace::CPU, address) {
-            match d {
-                Device::RAM(bytes) => {
-                    return bytes[address as usize - r.0 as usize];
-                }
-                Device::ROM(i) => {
-                    let index = address as usize - r.0 as usize;
-                    // This means supplied ROM does not have to be filled
-                    if index < BANK_SIZE {
-                        return self.ines.banks[BANK_SIZE * *i + index]
-                    } else {
-                        return 0;
-                    }
-                }
-            }
-        }
-        0
+        self.read_from_bus(address, read_only, AddressSpace::CPU)
     }
     pub fn write(&mut self, address: u16, value: u8) {
+        self.write_to_bus(address, value, AddressSpace::CPU);
+    }
+    pub fn ppu_read(&mut self, address: u16, read_only: bool) -> u8 {
+        self.read_from_bus(address, read_only, AddressSpace::PPU)
+    }
+    pub fn ppu_write(&mut self, address: u16, value: u8) {
+        self.write_to_bus(address, value, AddressSpace::PPU);
+    }
+
+    fn write_to_bus(&mut self, address: u16, value: u8, bus: AddressSpace) {
         debug!("write: {:#06X}", address);
-        if let Some((d, r)) = try_address(&mut self.memory, AddressSpace::CPU, address) {
+        if let Some((d, r)) = try_address(&mut self.memory, bus, address) {
             match d {
                 Device::RAM(bytes) => {
                     bytes[address as usize - r.0 as usize] = value;
                 }
                 Device::ROM(_bytes) => {}
             }
+        }
+    }
+
+    /// If "read_only" is set, the read has no affect on the state of the system.
+    fn read_from_bus(&mut self, address: u16, read_only: bool, bus: AddressSpace) -> u8 {
+        if !read_only {
+            debug!("read: {:#06X}", address);
+        }
+        if let Some((d, r)) = try_address(&mut self.memory, bus, address) {
+            match d {
+                Device::RAM(bytes) => {
+                    bytes[address as usize - r.0 as usize]
+                }
+                Device::ROM(i) => {
+                    let index = address as usize - r.0 as usize;
+                    // This means supplied ROM does not have to be filled
+                    if index < BANK_SIZE {
+                        self.ines.banks[BANK_SIZE * *i + index]
+                    } else {
+                        0
+                    }
+                }
+            }
+        } else {
+            0
         }
     }
 
