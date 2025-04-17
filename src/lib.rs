@@ -63,6 +63,7 @@ pub enum Device {
     RAM(Vec<u8>),
     /// Bank index
     ROM(usize),
+    PALETTE([u8; 32]),
 }
 /// There are separate address spaces, the CPU + some PPU ones
 /// https://www.nesdev.org/wiki/PPU
@@ -190,9 +191,25 @@ impl State {
             }],
             device: Device::ROM(if ines.inesprg == 1 {3} else {5}),
         });
-//        // Nametables
-//        let nametables_size: RangeInclusive<u16> = 0x2000..=0x3EFF;
-//
+        // VRAM; Nametables
+        let nametables_range: RangeInclusive<u16> = 0x2000..=0x3EFF;
+        memory.push(MemoryMap {
+            device: Device::RAM(vec![0; (nametables_range.end()+1 - nametables_range.start()) as usize]),
+            memory_regions: vec![MemoryRegion {
+                address_space: AddressSpace::PPU,
+                range: nametables_range,
+            }],
+        });
+        // Palettes
+        let palettes_range: RangeInclusive<u16> = 0x3F00..=0x3FFF;
+        memory.push(MemoryMap {
+            device: Device::PALETTE([0; 32]),
+            memory_regions: vec![MemoryRegion {
+                address_space: AddressSpace::PPU,
+                range: palettes_range,
+            }],
+        });
+
         let mut state = Self {
             pc,
             a,
@@ -297,6 +314,10 @@ cycles: {}\
                         0
                     }
                 }
+                Device::PALETTE(bs) => {
+                    let address = address & 0x001F;
+                    bs[address as usize]
+                },
             }
         } else {
             0
