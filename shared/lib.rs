@@ -3,23 +3,6 @@ use Opcode::*;
 use std::{collections::HashMap, error::Error, fmt, fs::File, io::{self, BufReader, Read}, path::{Path, PathBuf}, str::FromStr};
 use strum::IntoEnumIterator;
 
-/// Simple range struct for range checking.
-/// `0`: inclusive, `1`: exclusive.
-#[derive(Clone, Copy, Debug)]
-pub struct Range(pub u16, pub u16);
-impl Range {
-    pub fn contains(&self, value: u16) -> bool {
-        value >= self.0 && value < self.1
-    }
-}
-
-impl fmt::Display for Range {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:#06X}-{:#06X}", self.0, self.1)
-    }
-}
-
-
 /// In number of bytes.
 /// Banks can have different meanings in different context,
 /// this is the minimal size of a ROM region that can

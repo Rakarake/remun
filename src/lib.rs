@@ -16,7 +16,6 @@ use shared::BANK_SIZE;
 use shared::CODEPOINTS;
 use shared::Codepoint;
 use shared::Opcode;
-use shared::Range;
 use shared::Ines;
 
 /// The state of the NES, registers, all devices mapped to memory-regions
@@ -58,7 +57,7 @@ pub struct MemoryMap {
 pub struct MemoryRegion {
     /// Memory could be on cpu/ppu
     address_space: AddressSpace,
-    range: Range,
+    range: RangeInclusive<u16>,
 }
 pub enum Device {
     RAM(Vec<u8>),
@@ -119,7 +118,7 @@ impl State {
             MemoryMap {
                 memory_regions: vec![MemoryRegion {
                     address_space: AddressSpace::CPU,
-                    range: Range(0x0000, 0x07FF),
+                    range: 0x0000..=0x07FF,
                 }],
                 device: Device::RAM(vec![0; 0x0800]),
             },
@@ -130,12 +129,12 @@ impl State {
                     memory_regions: vec![
                         MemoryRegion {
                             address_space: AddressSpace::CPU,
-                            range: Range(0x8000, 0x9FFF),
+                            range: 0x8000..=0x9FFF,
                         },
                         // Mirrored region
                         MemoryRegion {
                             address_space: AddressSpace::CPU,
-                            range: Range(0xC000, 0xDFFF),
+                            range: 0xC000..=0xDFFF,
                         },
                     ],
                     device: Device::ROM(0),
@@ -146,12 +145,12 @@ impl State {
                     memory_regions: vec![
                         MemoryRegion {
                             address_space: AddressSpace::CPU,
-                            range: Range(0xA000, 0xBFFF),
+                            range: 0xA000..=0xBFFF,
                         },
                         // Mirrored region
                         MemoryRegion {
                             address_space: AddressSpace::CPU,
-                            range: Range(0xE000, 0xFFFF),
+                            range: 0xE000..=0xFFFF,
                         },
                     ],
                     device: Device::ROM(1),
@@ -164,7 +163,7 @@ impl State {
                     memory_regions: vec![
                         MemoryRegion {
                             address_space: AddressSpace::CPU,
-                            range: Range(0xC000, 0xDFFF),
+                            range: 0xC000..=0xDFFF,
                         },
                     ],
                     device: Device::ROM(3),
@@ -175,7 +174,7 @@ impl State {
                     memory_regions: vec![
                         MemoryRegion {
                             address_space: AddressSpace::CPU,
-                            range: Range(0xE000, 0xFFFF),
+                            range: 0xE000..=0xFFFF,
                         },
                     ],
                     device: Device::ROM(4),
@@ -187,7 +186,7 @@ impl State {
             memory_regions: vec![MemoryRegion {
                 address_space: AddressSpace::PPU,
                 // TODO when working with the ppu
-                range: Range(0x0000, 0x1FFF),
+                range: 0x0000..=0x1FFF,
             }],
             device: Device::ROM(if ines.inesprg == 1 {3} else {5}),
         });
@@ -272,7 +271,7 @@ cycles: {}\
         if let Some((d, r)) = try_address(&mut self.memory, bus, address) {
             match d {
                 Device::RAM(bytes) => {
-                    bytes[address as usize - r.0 as usize] = value;
+                    bytes[address as usize - *r.start() as usize] = value;
                 }
                 Device::ROM(_bytes) => {}
             }
@@ -287,10 +286,10 @@ cycles: {}\
         if let Some((d, r)) = try_address(&mut self.memory, bus, address) {
             match d {
                 Device::RAM(bytes) => {
-                    bytes[address as usize - r.0 as usize]
+                    bytes[address as usize - *r.start() as usize]
                 }
                 Device::ROM(i) => {
-                    let index = address as usize - r.0 as usize;
+                    let index = address as usize - *r.start() as usize;
                     // This means supplied ROM does not have to be filled
                     if index < BANK_SIZE {
                         self.ines.banks[BANK_SIZE * *i + index]
@@ -328,12 +327,12 @@ fn try_address(
     memory: &mut Vec<MemoryMap>,
     address_space: AddressSpace,
     address: u16,
-) -> Option<(&mut Device, Range)> {
+) -> Option<(&mut Device, RangeInclusive<u16>)> {
     memory.iter_mut().find_map(|m| {
         m.memory_regions
             .iter()
-            .find(|mr| mr.address_space == address_space && mr.range.contains(address))
-            .map(|mr| (&mut m.device, mr.range))
+            .find(|mr| mr.address_space == address_space && mr.range.contains(&address))
+            .map(|mr| (&mut m.device, mr.range.clone()))
     })
 }
 
