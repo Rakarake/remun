@@ -291,6 +291,19 @@ cycles: {}\
                     bytes[address as usize - *r.start() as usize] = value;
                 }
                 Device::ROM(_bytes) => {}
+                Device::PALETTE(bs) => {
+                    let address = address & 0x001F;
+                    // a sprite's "transparent color"
+                    let address = match address {
+                        0x0010 => 0x0000,
+                        0x0014 => 0x0004,
+                        0x0016 => 0x0006,
+                        0x0018 => 0x0008,
+                        0x001C => 0x000C,
+                        _ => address,
+                    };
+                    bs[address as usize] = value;
+                }
             }
         }
     }
@@ -316,6 +329,15 @@ cycles: {}\
                 }
                 Device::PALETTE(bs) => {
                     let address = address & 0x001F;
+                    // a sprite's "transparent color"
+                    let address = match address {
+                        0x0010 => 0x0000,
+                        0x0014 => 0x0004,
+                        0x0016 => 0x0006,
+                        0x0018 => 0x0008,
+                        0x001C => 0x000C,
+                        _ => address,
+                    };
                     bs[address as usize]
                 },
             }
