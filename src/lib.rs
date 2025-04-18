@@ -60,17 +60,17 @@ pub struct MemoryRegion {
     range: RangeInclusive<u16>,
 }
 pub enum Device {
-    RAM(Vec<u8>),
+    Ram(Vec<u8>),
     /// Bank index
-    ROM(usize),
-    PALETTE([u8; 32]),
+    Rom(usize),
+    Palette([u8; 32]),
 }
 /// There are separate address spaces, the CPU + some PPU ones
 /// https://www.nesdev.org/wiki/PPU
 #[derive(PartialEq)]
 pub enum AddressSpace {
-    CPU,
-    PPU,
+    Cpu,
+    Ppu,
 }
 
 #[derive(Debug)]
@@ -118,10 +118,10 @@ impl State {
         memory.push(
             MemoryMap {
                 memory_regions: vec![MemoryRegion {
-                    address_space: AddressSpace::CPU,
+                    address_space: AddressSpace::Cpu,
                     range: 0x0000..=0x07FF,
                 }],
-                device: Device::RAM(vec![0; 0x0800]),
+                device: Device::Ram(vec![0; 0x0800]),
             },
         );
         if ines.inesprg == 1 {
@@ -129,32 +129,32 @@ impl State {
                 MemoryMap {
                     memory_regions: vec![
                         MemoryRegion {
-                            address_space: AddressSpace::CPU,
+                            address_space: AddressSpace::Cpu,
                             range: 0x8000..=0x9FFF,
                         },
                         // Mirrored region
                         MemoryRegion {
-                            address_space: AddressSpace::CPU,
+                            address_space: AddressSpace::Cpu,
                             range: 0xC000..=0xDFFF,
                         },
                     ],
-                    device: Device::ROM(0),
+                    device: Device::Rom(0),
                 }
             );
             memory.push(
                 MemoryMap {
                     memory_regions: vec![
                         MemoryRegion {
-                            address_space: AddressSpace::CPU,
+                            address_space: AddressSpace::Cpu,
                             range: 0xA000..=0xBFFF,
                         },
                         // Mirrored region
                         MemoryRegion {
-                            address_space: AddressSpace::CPU,
+                            address_space: AddressSpace::Cpu,
                             range: 0xE000..=0xFFFF,
                         },
                     ],
-                    device: Device::ROM(1),
+                    device: Device::Rom(1),
                 }
             );
         } else {
@@ -163,49 +163,49 @@ impl State {
                 MemoryMap {
                     memory_regions: vec![
                         MemoryRegion {
-                            address_space: AddressSpace::CPU,
+                            address_space: AddressSpace::Cpu,
                             range: 0xC000..=0xDFFF,
                         },
                     ],
-                    device: Device::ROM(3),
+                    device: Device::Rom(3),
                 }
             );
             memory.push(
                 MemoryMap {
                     memory_regions: vec![
                         MemoryRegion {
-                            address_space: AddressSpace::CPU,
+                            address_space: AddressSpace::Cpu,
                             range: 0xE000..=0xFFFF,
                         },
                     ],
-                    device: Device::ROM(4),
+                    device: Device::Rom(4),
                 }
             );
         }
         // 8KiB pattern memory
         memory.push(MemoryMap {
             memory_regions: vec![MemoryRegion {
-                address_space: AddressSpace::PPU,
+                address_space: AddressSpace::Ppu,
                 // TODO when working with the ppu
                 range: 0x0000..=0x1FFF,
             }],
-            device: Device::ROM(if ines.inesprg == 1 {3} else {5}),
+            device: Device::Rom(if ines.inesprg == 1 {3} else {5}),
         });
         // VRAM; Nametables
         let nametables_range: RangeInclusive<u16> = 0x2000..=0x3EFF;
         memory.push(MemoryMap {
-            device: Device::RAM(vec![0; (nametables_range.end()+1 - nametables_range.start()) as usize]),
+            device: Device::Ram(vec![0; (nametables_range.end()+1 - nametables_range.start()) as usize]),
             memory_regions: vec![MemoryRegion {
-                address_space: AddressSpace::PPU,
+                address_space: AddressSpace::Ppu,
                 range: nametables_range,
             }],
         });
         // Palettes
         let palettes_range: RangeInclusive<u16> = 0x3F00..=0x3FFF;
         memory.push(MemoryMap {
-            device: Device::PALETTE([0; 32]),
+            device: Device::Palette([0; 32]),
             memory_regions: vec![MemoryRegion {
-                address_space: AddressSpace::PPU,
+                address_space: AddressSpace::Ppu,
                 range: palettes_range,
             }],
         });
@@ -271,27 +271,27 @@ cycles: {}\
     }
 
     pub fn read(&mut self, address: u16, read_only: bool) -> u8 {
-        self.read_from_bus(address, read_only, AddressSpace::CPU)
+        self.read_from_bus(address, read_only, AddressSpace::Cpu)
     }
     pub fn write(&mut self, address: u16, value: u8) {
-        self.write_to_bus(address, value, AddressSpace::CPU);
+        self.write_to_bus(address, value, AddressSpace::Cpu);
     }
     pub fn ppu_read(&mut self, address: u16, read_only: bool) -> u8 {
-        self.read_from_bus(address, read_only, AddressSpace::PPU)
+        self.read_from_bus(address, read_only, AddressSpace::Ppu)
     }
     pub fn ppu_write(&mut self, address: u16, value: u8) {
-        self.write_to_bus(address, value, AddressSpace::PPU);
+        self.write_to_bus(address, value, AddressSpace::Ppu);
     }
 
     fn write_to_bus(&mut self, address: u16, value: u8, bus: AddressSpace) {
         debug!("write: {:#06X}", address);
         if let Some((d, r)) = try_address(&mut self.memory, bus, address) {
             match d {
-                Device::RAM(bytes) => {
+                Device::Ram(bytes) => {
                     bytes[address as usize - *r.start() as usize] = value;
                 }
-                Device::ROM(_bytes) => {}
-                Device::PALETTE(bs) => {
+                Device::Rom(_bytes) => {}
+                Device::Palette(bs) => {
                     let address = address & 0x001F;
                     // a sprite's "transparent color"
                     let address = match address {
@@ -315,10 +315,10 @@ cycles: {}\
         }
         if let Some((d, r)) = try_address(&mut self.memory, bus, address) {
             match d {
-                Device::RAM(bytes) => {
+                Device::Ram(bytes) => {
                     bytes[address as usize - *r.start() as usize]
                 }
-                Device::ROM(i) => {
+                Device::Rom(i) => {
                     let index = address as usize - *r.start() as usize;
                     // This means supplied ROM does not have to be filled
                     if index < BANK_SIZE {
@@ -327,7 +327,7 @@ cycles: {}\
                         0
                     }
                 }
-                Device::PALETTE(bs) => {
+                Device::Palette(bs) => {
                     let address = address & 0x001F;
                     // a sprite's "transparent color"
                     let address = match address {
