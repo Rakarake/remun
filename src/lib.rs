@@ -63,7 +63,8 @@ pub enum Device {
     Ram(Vec<u8>),
     /// Bank index
     Rom(usize),
-    Palette([u8; 32]),
+    Palette(Box<[u8; 32]>),
+    PpuRegisters([u8; 8]),
 }
 /// There are separate address spaces, the CPU + some PPU ones
 /// https://www.nesdev.org/wiki/PPU
@@ -71,6 +72,9 @@ pub enum Device {
 pub enum AddressSpace {
     Cpu,
     Ppu,
+}
+
+struct PpuState {
 }
 
 #[derive(Debug)]
@@ -182,6 +186,7 @@ impl State {
                 }
             );
         }
+
         // 8KiB pattern memory
         memory.push(MemoryMap {
             memory_regions: vec![MemoryRegion {
@@ -191,6 +196,7 @@ impl State {
             }],
             device: Device::Rom(if ines.inesprg == 1 {3} else {5}),
         });
+
         // VRAM; Nametables
         let nametables_range: RangeInclusive<u16> = 0x2000..=0x3EFF;
         memory.push(MemoryMap {
@@ -200,13 +206,24 @@ impl State {
                 range: nametables_range,
             }],
         });
+
         // Palettes
         let palettes_range: RangeInclusive<u16> = 0x3F00..=0x3FFF;
         memory.push(MemoryMap {
-            device: Device::Palette([0; 32]),
+            device: Device::Palette(Box::new([0; 32])),
             memory_regions: vec![MemoryRegion {
                 address_space: AddressSpace::Ppu,
                 range: palettes_range,
+            }],
+        });
+
+        // PPU registers on the CPU bus
+        let ppu_registers_range: RangeInclusive<u16> = 0x2000..=0x3FFF;
+        memory.push(MemoryMap {
+            device: Device::PpuRegisters([0; 8]),
+            memory_regions: vec![MemoryRegion {
+                address_space: AddressSpace::Cpu,
+                range: ppu_registers_range,
             }],
         });
 
@@ -304,6 +321,8 @@ cycles: {}\
                     };
                     bs[address as usize] = value;
                 }
+                Device::PpuRegisters(registers) => {
+                },
             }
         }
     }
@@ -339,6 +358,10 @@ cycles: {}\
                         _ => address,
                     };
                     bs[address as usize]
+                },
+                Device::PpuRegisters(registers) => {
+                    let address = (address & 0b111) as usize;
+                    registers[address]
                 },
             }
         } else {
