@@ -135,7 +135,7 @@ impl Visualizer {
             show_flag!(Z);
             show_flag!(C);
 
-            // Show PPU state
+            ui.label("PPU state");
             if let Some(addr) = state.ppu_state.tmp_addr {
                 ui.monospace(format!("temporary address: ${:04X}", addr));
             } else {
