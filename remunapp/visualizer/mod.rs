@@ -135,6 +135,14 @@ impl Visualizer {
             show_flag!(Z);
             show_flag!(C);
 
+            // Show PPU state
+            if let Some(addr) = state.ppu_state.tmp_addr {
+                ui.monospace(format!("temporary address: ${:04X}", addr));
+            } else {
+                ui.monospace("temporary address: no!");
+            }
+            ui.monospace(format!("temporary value: ${:02X}", state.ppu_state.tmp_val));
+
             //ui.image(egui::include_image!(
             //    "../logo.png"
             //));

@@ -93,7 +93,7 @@ pub struct PpuState {
 
 impl PpuState {
     fn new() -> Self {
-        Self { tmp_addr: None, tmp_val: 0, vblank: true, sprite_0_hit: true, sprite_overflow: true }
+        Self { tmp_addr: None, tmp_val: 0, vblank: false, sprite_0_hit: false, sprite_overflow: false }
     }
 }
 
@@ -391,21 +391,26 @@ impl State {
                     match address & 0b111 {
                         // PPUSTATUS, PPU Status register
                         0x0002 => {
-                            println!("vblank: {:?}", self.ppu_state.vblank);
+                            // TODO remove this
+                            self.ppu_state.vblank = true;
                             let to_return = 
                                 (if self.ppu_state.vblank {1<<7} else {0}) |
                                 (if self.ppu_state.sprite_0_hit {1<<6} else {0}) |
                                 (if self.ppu_state.sprite_overflow {1<<5} else {0});
-                            self.ppu_state.vblank = false;
-                            self.ppu_state.tmp_addr = None;
+                            if !read_only {
+                                self.ppu_state.vblank = false;
+                                self.ppu_state.tmp_addr = None;
+                            }
                             to_return
                         },
                         // PPUDATA, VRAM Data Read/Write
                         0x0007 => {
                             let mut to_return = self.ppu_state.tmp_val;
                             if let Some(tmp_addr) = self.ppu_state.tmp_addr {
-                                self.ppu_state.tmp_val = self.ppu_read(tmp_addr, false);
-                                // Special cases for palettes (reads in the same read)
+                                if !read_only {
+                                    self.ppu_state.tmp_val = self.ppu_read(tmp_addr, false);
+                                }
+                                // Special cases for palettes (gets value in the same read)
                                 if tmp_addr == 0x3F00 {
                                     to_return = self.ppu_state.tmp_val;
                                 }
