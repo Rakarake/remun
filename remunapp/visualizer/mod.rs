@@ -116,12 +116,24 @@ impl Visualizer {
                 state.run_one_instruction();
             }
             ui.toggle_value(&mut self.running, "Running");
+            ui.monospace(format!("PC: ${:04X}", state.pc));
             ui.monospace(format!("A: ${:02X}", state.a));
             ui.monospace(format!("X: ${:02X}", state.x));
             ui.monospace(format!("Y: ${:02X}", state.y));
-            ui.monospace(format!("SR: ${:02X}", state.sr));
             ui.monospace(format!("SP: ${:02X}", state.sp));
-            ui.monospace(format!("PC: ${:04X}", state.pc));
+            ui.label("Status registers");
+            macro_rules! show_flag {
+                ($i:tt) => {
+                    ui.monospace(format!("{}: {}", stringify!($i), (state.sr & shared::flags::$i) != 0));
+                };
+            }
+            show_flag!(N);
+            show_flag!(V);
+            show_flag!(B);
+            show_flag!(D);
+            show_flag!(I);
+            show_flag!(Z);
+            show_flag!(C);
 
             //ui.image(egui::include_image!(
             //    "../logo.png"

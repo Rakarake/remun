@@ -391,6 +391,7 @@ impl State {
                     match address & 0b111 {
                         // PPUSTATUS, PPU Status register
                         0x0002 => {
+                            println!("vblank: {:?}", self.ppu_state.vblank);
                             let to_return = 
                                 (if self.ppu_state.vblank {1<<7} else {0}) |
                                 (if self.ppu_state.sprite_0_hit {1<<6} else {0}) |
