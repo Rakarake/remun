@@ -76,14 +76,17 @@ pub enum AddressSpace {
 }
 
 struct PpuState {
-    /// The possible value in the ppu bus register.
+    /// This gets set when writing to PPUADDR twice, first the high byte then the low byte.
     tmp_addr: Option<u16>,
+    /// This is the buffered value that is saved for the next read when reading from PPUDATA.
     tmp_val: u8,
+    /// Is vblank interrupt enabled.
+    vertical_blank: bool,
 }
 
 impl PpuState {
     fn new() -> Self {
-        Self { tmp_addr: None, tmp_val: 0 }
+        Self { tmp_addr: None, tmp_val: 0, vertical_blank: true }
     }
 }
 
@@ -391,16 +394,24 @@ cycles: {}\
                 },
                 Device::PpuRegisters(ppu_state) => {
                     match address & 0b111 {
+                        // PPU Status register
+                        0x0002 => {
+                            0
+                        },
+                        // VRAM Data Read/Write
                         0x0007 => {
-                            let to_return = ppu_state.tmp_val;
+                            let mut to_return = ppu_state.tmp_val;
                             if let Some(tmp_addr) = ppu_state.tmp_addr {
                                 // SAFETY: postcondition: ref_copy must not be returned. This is
                                 // needed because we have overlapping mutable references,
                                 // which could be avoided with RefCell or move ownership
                                 // termporarily.
                                 let ref_copy = unsafe { std::mem::transmute::<&mut PpuState, &'static mut PpuState>(ppu_state) };
-                                let val = self.ppu_read(tmp_addr, false);
-                                ref_copy.tmp_val = val;
+                                ref_copy.tmp_val = self.ppu_read(tmp_addr, false);
+                                // Special cases for palettes (reads in the same read)
+                                if tmp_addr == 0x3F00 {
+                                    to_return = ref_copy.tmp_val;
+                                }
                             }
                             to_return
                         },
