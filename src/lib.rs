@@ -1,4 +1,5 @@
 #![feature(let_chains)]
+#![forbid(clippy::undocumented_unsafe_blocks)]
 pub mod addressing_modes;
 pub mod memory;
 pub mod opcodes;
@@ -64,7 +65,7 @@ pub enum Device {
     /// Bank index
     Rom(usize),
     Palette(Box<[u8; 32]>),
-    PpuRegisters([u8; 8]),
+    PpuRegisters(PpuState),
 }
 /// There are separate address spaces, the CPU + some PPU ones
 /// https://www.nesdev.org/wiki/PPU
@@ -75,6 +76,15 @@ pub enum AddressSpace {
 }
 
 struct PpuState {
+    /// The possible value in the ppu bus register.
+    tmp_addr: Option<u16>,
+    tmp_val: u8,
+}
+
+impl PpuState {
+    fn new() -> Self {
+        Self { tmp_addr: None, tmp_val: 0 }
+    }
 }
 
 #[derive(Debug)]
@@ -220,7 +230,7 @@ impl State {
         // PPU registers on the CPU bus
         let ppu_registers_range: RangeInclusive<u16> = 0x2000..=0x3FFF;
         memory.push(MemoryMap {
-            device: Device::PpuRegisters([0; 8]),
+            device: Device::PpuRegisters(PpuState::new()),
             memory_regions: vec![MemoryRegion {
                 address_space: AddressSpace::Cpu,
                 range: ppu_registers_range,
@@ -321,7 +331,27 @@ cycles: {}\
                     };
                     bs[address as usize] = value;
                 }
-                Device::PpuRegisters(registers) => {
+                Device::PpuRegisters(ppu_state) => {
+                    match address & 0b111 {
+                        0x0006 => {
+                            match ppu_state.tmp_addr {
+                                None => {
+                                    ppu_state.tmp_addr = Some(address & 0xFF00);
+                                },
+                                Some(x) => {
+                                    ppu_state.tmp_addr = Some(x | (address & 0x00FF));
+                                }
+                            }
+                        },
+                        0x0007 => {
+                            if let Some(address) = ppu_state.tmp_addr {
+                                self.ppu_write(address, value);
+                            } else {
+                                log::warn!("expecting an address to be put in the ppu address register");
+                            }
+                        },
+                        _ => {},
+                    }
                 },
             }
         }
@@ -359,9 +389,24 @@ cycles: {}\
                     };
                     bs[address as usize]
                 },
-                Device::PpuRegisters(registers) => {
-                    let address = (address & 0b111) as usize;
-                    registers[address]
+                Device::PpuRegisters(ppu_state) => {
+                    match address & 0b111 {
+                        0x0007 => {
+                            let to_return = ppu_state.tmp_val;
+                            if let Some(tmp_addr) = ppu_state.tmp_addr {
+                                // SAFETY: postcondition: ref_copy must not be returned. This is
+                                // needed because we have overlapping mutable references,
+                                // which could be avoided with RefCell or move ownership
+                                // termporarily.
+                                let ref_copy = unsafe { std::mem::transmute::<&mut PpuState, &'static mut PpuState>(ppu_state) };
+                                let val = self.ppu_read(tmp_addr, false);
+                                ref_copy.tmp_val = val;
+                            }
+                            to_return
+                        },
+                        _ => 0,
+                    }
+                    //registers[address]
                 },
             }
         } else {
