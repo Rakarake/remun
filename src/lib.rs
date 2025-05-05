@@ -47,6 +47,8 @@ pub struct State {
     pub ines: Ines,
     /// The dynamic memory mappings.
     pub memory: Vec<MemoryMap>,
+    /// All PPU state
+    pub ppu_state: PpuState,
 }
 
 /// A device with can be mapped to memory regions on the cpu-bus or the ppu-bus
@@ -65,7 +67,7 @@ pub enum Device {
     /// Bank index
     Rom(usize),
     Palette(Box<[u8; 32]>),
-    PpuRegisters(PpuState),
+    PpuRegisters,
 }
 /// There are separate address spaces, the CPU + some PPU ones
 /// https://www.nesdev.org/wiki/PPU
@@ -233,12 +235,14 @@ impl State {
         // PPU registers on the CPU bus
         let ppu_registers_range: RangeInclusive<u16> = 0x2000..=0x3FFF;
         memory.push(MemoryMap {
-            device: Device::PpuRegisters(PpuState::new()),
+            device: Device::PpuRegisters,
             memory_regions: vec![MemoryRegion {
                 address_space: AddressSpace::Cpu,
                 range: ppu_registers_range,
             }],
         });
+
+        let ppu_state = PpuState::new();
 
         let mut state = Self {
             pc,
@@ -250,6 +254,7 @@ impl State {
             cycles,
             ines,
             memory,
+            ppu_state,
         };
         state.reset();
         debug!("setting PC to ${:04X}", state.pc);
@@ -334,20 +339,20 @@ cycles: {}\
                     };
                     bs[address as usize] = value;
                 }
-                Device::PpuRegisters(ppu_state) => {
+                Device::PpuRegisters => {
                     match address & 0b111 {
                         0x0006 => {
-                            match ppu_state.tmp_addr {
+                            match self.ppu_state.tmp_addr {
                                 None => {
-                                    ppu_state.tmp_addr = Some(address & 0xFF00);
+                                    self.ppu_state.tmp_addr = Some(address & 0xFF00);
                                 },
                                 Some(x) => {
-                                    ppu_state.tmp_addr = Some(x | (address & 0x00FF));
+                                    self.ppu_state.tmp_addr = Some(x | (address & 0x00FF));
                                 }
                             }
                         },
                         0x0007 => {
-                            if let Some(address) = ppu_state.tmp_addr {
+                            if let Some(address) = self.ppu_state.tmp_addr {
                                 self.ppu_write(address, value);
                             } else {
                                 log::warn!("expecting an address to be put in the ppu address register");
@@ -392,7 +397,7 @@ cycles: {}\
                     };
                     bs[address as usize]
                 },
-                Device::PpuRegisters(ppu_state) => {
+                Device::PpuRegisters => {
                     match address & 0b111 {
                         // PPU Status register
                         0x0002 => {
@@ -400,17 +405,12 @@ cycles: {}\
                         },
                         // VRAM Data Read/Write
                         0x0007 => {
-                            let mut to_return = ppu_state.tmp_val;
-                            if let Some(tmp_addr) = ppu_state.tmp_addr {
-                                // SAFETY: postcondition: ref_copy must not be returned. This is
-                                // needed because we have overlapping mutable references,
-                                // which could be avoided with RefCell or move ownership
-                                // termporarily.
-                                let ref_copy = unsafe { std::mem::transmute::<&mut PpuState, &'static mut PpuState>(ppu_state) };
-                                ref_copy.tmp_val = self.ppu_read(tmp_addr, false);
+                            let mut to_return = self.ppu_state.tmp_val;
+                            if let Some(tmp_addr) = self.ppu_state.tmp_addr {
+                                self.ppu_state.tmp_val = self.ppu_read(tmp_addr, false);
                                 // Special cases for palettes (reads in the same read)
                                 if tmp_addr == 0x3F00 {
-                                    to_return = ref_copy.tmp_val;
+                                    to_return = self.ppu_state.tmp_val;
                                 }
                             }
                             to_return
