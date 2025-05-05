@@ -77,18 +77,23 @@ pub enum AddressSpace {
     Ppu,
 }
 
-struct PpuState {
+pub struct PpuState {
     /// This gets set when writing to PPUADDR twice, first the high byte then the low byte.
-    tmp_addr: Option<u16>,
+    pub tmp_addr: Option<u16>,
     /// This is the buffered value that is saved for the next read when reading from PPUDATA.
-    tmp_val: u8,
-    /// Is vblank interrupt enabled.
-    vertical_blank: bool,
+    pub tmp_val: u8,
+    /// Unreliable vblank detection flag.
+    pub vblank: bool,
+    /// Crazy hit detection.
+    pub sprite_0_hit: bool,
+    /// Buggy detection to check if there are more than 8 sprites on a scanline.
+    pub sprite_overflow: bool,
+
 }
 
 impl PpuState {
     fn new() -> Self {
-        Self { tmp_addr: None, tmp_val: 0, vertical_blank: true }
+        Self { tmp_addr: None, tmp_val: 0, vblank: true, sprite_0_hit: true, sprite_overflow: true }
     }
 }
 
@@ -290,21 +295,6 @@ impl State {
         }
     }
 
-    pub fn print_state(&self) {
-        println!(
-            "\
-pc: {:#06X}
-a: {:#06X}
-x: {:#06X}
-y: {:#06X}
-sr: {:#06X}
-sp: {:#06X}
-cycles: {}\
-",
-            self.pc, self.a, self.x, self.y, self.sr, self.sp, self.cycles
-        );
-    }
-
     pub fn read(&mut self, address: u16, read_only: bool) -> u8 {
         self.read_from_bus(address, read_only, AddressSpace::Cpu)
     }
@@ -399,11 +389,17 @@ cycles: {}\
                 },
                 Device::PpuRegisters => {
                     match address & 0b111 {
-                        // PPU Status register
+                        // PPUSTATUS, PPU Status register
                         0x0002 => {
-                            0
+                            let to_return = 
+                                (if self.ppu_state.vblank {1<<7} else {0}) |
+                                (if self.ppu_state.sprite_0_hit {1<<6} else {0}) |
+                                (if self.ppu_state.sprite_overflow {1<<5} else {0});
+                            self.ppu_state.vblank = false;
+                            self.ppu_state.tmp_addr = None;
+                            to_return
                         },
-                        // VRAM Data Read/Write
+                        // PPUDATA, VRAM Data Read/Write
                         0x0007 => {
                             let mut to_return = self.ppu_state.tmp_val;
                             if let Some(tmp_addr) = self.ppu_state.tmp_addr {

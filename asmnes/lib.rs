@@ -97,7 +97,7 @@ impl Instruction {
         let operand = match arity {
             0 => {Operand::No}
             1 => {Operand::U8(*itr.next()?)}
-            2 => {Operand::U16(((*itr.next()? as u16) << 8) + *itr.next()? as u16)},
+            2 => {Operand::U16((*itr.next()? as u16) | ((*itr.next()? as u16) << 8))},
             _ => panic!("internal error, impossible arity"),
         };
         Some((Instruction(opcode, addressing_mode, operand), arity + 1))
