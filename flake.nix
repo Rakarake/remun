@@ -19,8 +19,19 @@
         devShell = pkgs.mkShell rec {
           LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath buildInputs}";
           packages = with pkgs; [ 
-            (rust-bin.selectLatestNightlyWith (toolchain: toolchain.default))
-            gcc
+            # the rust package
+            ((rust-bin.selectLatestNightlyWith (toolchain: toolchain.default)).override {
+              targets = [ "x86_64-unknown-linux-musl" ];
+            })
+            # cc without glibc
+            (wrapCCWith {
+              # could use gcc.cc
+              cc = clang.cc;
+              bintools = wrapBintoolsWith {
+                bintools = binutils-unwrapped;
+                libc = musl;
+              };
+            })
           ];
           buildInputs = with pkgs; [
             libdisplay-info
