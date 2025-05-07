@@ -14,6 +14,7 @@
         pkgs = import nixpkgs {
           inherit system overlays;
         };
+        muslPkgs = pkgs.pkgsMusl;
       in
       {
         devShell = pkgs.mkShell rec {
@@ -24,16 +25,18 @@
               targets = [ "x86_64-unknown-linux-musl" ];
             })
             # cc without glibc
+            #musl.dev
+            #gcc
             (wrapCCWith {
               # could use gcc.cc
-              cc = clang.cc;
+              cc = pkgs.llvmPackages.clang.cc;
               bintools = wrapBintoolsWith {
-                bintools = binutils-unwrapped;
+                bintools = pkgs.llvmPackages.bintools;
                 libc = musl;
               };
             })
           ];
-          buildInputs = with pkgs; [
+          buildInputs = with muslPkgs; [
             libdisplay-info
             libgbm
             #mesa
