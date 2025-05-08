@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use asmnes::Instruction;
 use egui::{Color32, RichText};
 use remun::State;
@@ -7,7 +9,8 @@ const NR_ROWS: usize = 40;
 pub struct Debugger {
     following_pc: bool,
     /// address, instruction, breakpoint enabled
-    disassembly: Vec<(u16, Instruction, bool)>,
+    disassembly: Vec<(u16, Instruction)>,
+    breakpoints: HashSet<u64>,
     cursor: u64,
     line_number: usize,
 }
@@ -15,8 +18,9 @@ pub struct Debugger {
 impl Debugger {
     pub fn new(state: &mut State) -> Self {
         let disassembly = asmnes::disassemble(&(0..=u16::MAX).map(|a| state.read(a, true)).collect::<Vec<u8>>()).0
-            .iter().map(|(a, i)| (*a, i.clone(), false)).collect();
-        Self { following_pc: true, disassembly, cursor: 0, line_number: 0 }
+            .iter().map(|(a, i)| (*a, i.clone())).collect();
+        let breakpoints = HashSet::new();
+        Self { following_pc: true, disassembly, cursor: 0, line_number: 0, breakpoints }
     }
     pub fn update(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, state: &mut State) {
         ui.toggle_value(&mut self.following_pc, "Following PC");
@@ -26,15 +30,19 @@ impl Debugger {
         let input = ctx.input(|i| i.clone());
         crate::visualizer::scroll_area(ctx, ui, &mut self.line_number, &mut self.cursor);
         if input.key_pressed(egui::Key::Enter) || self.following_pc {
-            if let Some(ln) = self.disassembly.iter().position(|(addr, _, _)| *addr >= (self.cursor as u16)) {
+            if let Some(ln) = self.disassembly.iter().position(|(addr, _)| *addr >= (self.cursor as u16)) {
                 self.line_number = ln;
             }
         }
         if input.key_pressed(egui::Key::B) {
-           self.disassembly[self.line_number..(self.line_number+NR_ROWS)].iter_mut().find_map(|(addr, _, b)| if (*addr as u64) == self.cursor {*b = !*b; Some(())} else {None});
+            if self.breakpoints.contains(&self.cursor) {
+                self.breakpoints.remove(&self.cursor);
+            } else {
+                self.breakpoints.insert(self.cursor);
+            }
         }
-        self.disassembly[self.line_number..(self.line_number+NR_ROWS)].iter().for_each(|(addr, i, breakpoint)| {
-            let breakpoint_symbol = if *breakpoint {"+"} else {"|"};
+        self.disassembly[self.line_number..(self.line_number+NR_ROWS)].iter().for_each(|(addr, i)| {
+            let breakpoint_symbol = if self.breakpoints.contains(&(*addr as u64)) {"+"} else {"|"};
             if (self.cursor as u16) >= *addr && (self.cursor as u16) <= *addr + (i.1.arity() as u16) {
                 ui.label(RichText::new(format!("{breakpoint_symbol}{addr:04X}: {i}")).color(Color32::GREEN));
             } else if state.pc >= *addr && state.pc <= *addr + (i.1.arity() as u16) {
