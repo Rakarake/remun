@@ -10,7 +10,7 @@ pub struct Debugger {
     following_pc: bool,
     /// address, instruction, breakpoint enabled
     disassembly: Vec<(u16, Instruction)>,
-    breakpoints: HashSet<u64>,
+    pub breakpoints: HashSet<u64>,
     cursor: u64,
     line_number: usize,
 }
@@ -40,6 +40,15 @@ impl Debugger {
             } else {
                 self.breakpoints.insert(self.cursor);
             }
+        }
+        if input.key_pressed(egui::Key::ArrowDown) {
+            self.cursor += 1;
+        }
+        if input.key_pressed(egui::Key::ArrowUp) {
+            self.cursor -= 1;
+        }
+        if input.key_pressed(egui::Key::F) {
+            self.following_pc = !self.following_pc;
         }
         self.disassembly[self.line_number..(self.line_number+NR_ROWS)].iter().for_each(|(addr, i)| {
             let breakpoint_symbol = if self.breakpoints.contains(&(*addr as u64)) {"+"} else {"|"};

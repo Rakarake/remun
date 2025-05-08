@@ -120,7 +120,9 @@ impl Visualizer {
             }
             ui.heading("Run speed (instructions per second)");
             integer_edit_field(ui, &mut self.speed);
-            ui.toggle_value(&mut self.running, "Running");
+            if ui.toggle_value(&mut self.running, "Running").clicked() {
+                self.time_last_frame = Instant::now();
+            }
             if self.running {
                 // run amount of instructions needed since last time frame
                 let delta = self.time_last_frame.elapsed();
@@ -128,6 +130,10 @@ impl Visualizer {
                 for _ in 0..instructions_to_run {
                     state.run_one_instruction();
                     self.time_last_frame = Instant::now();
+                    if self.debugger.breakpoints.contains(&(state.pc as u64)) {
+                        self.running = false;
+                        break;
+                    }
                 }
             }
             ui.monospace(format!("PC: ${:04X}", state.pc));
