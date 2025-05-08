@@ -31,10 +31,10 @@ impl Debugger {
             }
         }
         if input.key_pressed(egui::Key::B) {
-            self.disassembly.iter_mut().find_map(|(addr, _, b)| {println!("{:?}, {:?}", *addr, self.cursor); if (*addr as u64) == self.cursor {*b = !*b; Some(())} else {None}});
+           self.disassembly[self.line_number..(self.line_number+NR_ROWS)].iter_mut().find_map(|(addr, _, b)| if (*addr as u64) == self.cursor {*b = !*b; Some(())} else {None});
         }
         self.disassembly[self.line_number..(self.line_number+NR_ROWS)].iter().for_each(|(addr, i, breakpoint)| {
-            let breakpoint_symbol = if *breakpoint {"🛑"} else {"|"};
+            let breakpoint_symbol = if *breakpoint {"+"} else {"|"};
             if (self.cursor as u16) >= *addr && (self.cursor as u16) <= *addr + (i.1.arity() as u16) {
                 ui.label(RichText::new(format!("{breakpoint_symbol}{addr:04X}: {i}")).color(Color32::GREEN));
             } else if state.pc >= *addr && state.pc <= *addr + (i.1.arity() as u16) {
