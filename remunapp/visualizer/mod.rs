@@ -18,6 +18,7 @@ use remun::State;
 use shared::AddressingMode::*;
 use shared::Opcode::*;
 use rfd::FileDialog;
+use std::time::Instant;
 
 mod debugger;
 mod hex_editor;
@@ -29,7 +30,8 @@ pub struct Visualizer {
     hidden: bool,
     running: bool,
     /// Instructions per second.
-    speed: u32,
+    speed: u64,
+    time_last_frame: Instant,
     view: View,
     debugger: Debugger,
     hex_editor: HexEditor,
@@ -80,6 +82,7 @@ impl Visualizer {
             view: View::Disassembly,
             debugger: Debugger::new(state),
             hex_editor: HexEditor::new(),
+            time_last_frame: Instant::now(),
         }
     }
     pub fn update(&mut self, ctx: &egui::Context, state: &mut State) {
@@ -115,7 +118,18 @@ impl Visualizer {
             if ui.small_button("step").clicked() {
                 state.run_one_instruction();
             }
+            ui.heading("Run speed (instructions per second)");
+            integer_edit_field(ui, &mut self.speed);
             ui.toggle_value(&mut self.running, "Running");
+            if self.running {
+                // run amount of instructions needed since last time frame
+                let delta = self.time_last_frame.elapsed();
+                let instructions_to_run = (delta.as_millis()) * self.speed as u128 / 1000;
+                for _ in 0..instructions_to_run {
+                    state.run_one_instruction();
+                    self.time_last_frame = Instant::now();
+                }
+            }
             ui.monospace(format!("PC: ${:04X}", state.pc));
             ui.monospace(format!("A: ${:02X}", state.a));
             ui.monospace(format!("X: ${:02X}", state.x));
