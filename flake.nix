@@ -18,23 +18,23 @@
       in
       {
         devShell = pkgs.mkShell rec {
-          LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath buildInputs}";
-          packages = with pkgs; [ 
+          LD_LIBRARY_PATH = "${muslPkgs.lib.makeLibraryPath buildInputs}";
+          packages = with muslPkgs; [ 
             # the rust package
             ((rust-bin.selectLatestNightlyWith (toolchain: toolchain.default)).override {
               targets = [ "x86_64-unknown-linux-musl" ];
             })
             # cc without glibc
             #musl.dev
-            #gcc
-            (wrapCCWith {
-              # could use gcc.cc
-              cc = pkgs.llvmPackages.clang.cc;
-              bintools = wrapBintoolsWith {
-                bintools = pkgs.llvmPackages.bintools;
-                libc = musl;
-              };
-            })
+            gcc
+            #(wrapCCWith {
+            #  # could use gcc.cc
+            #  cc = pkgs.llvmPackages.clang.cc;
+            #  bintools = wrapBintoolsWith {
+            #    bintools = pkgs.llvmPackages.bintools-unwrapped;
+            #    libc = musl;
+            #  };
+            #})
           ];
           buildInputs = with muslPkgs; [
             libdisplay-info
