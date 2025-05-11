@@ -35,13 +35,25 @@ pub fn run(addressing_mode: AddressingMode, state: &mut State) -> MemoryTarget {
             state.inc_pc();
             let lo = state.read(state.pc, false);
             state.inc_pc();
-            Address(lo as u16 + state.x as u16)
+            let hi = state.read(state.pc, false);
+            state.inc_pc();
+            // addr + X with carry-over
+            let addr = lo as u16 + ((hi as u16) << 8);
+            // TODO implement page-boundary extra cycle when low byte carries over
+            let (addr, _) = addr.overflowing_add(state.x as u16);
+            Address(addr)
         }
         ABS_Y => {
             state.inc_pc();
             let lo = state.read(state.pc, false);
             state.inc_pc();
-            Address(lo as u16 + state.y as u16)
+            let hi = state.read(state.pc, false);
+            state.inc_pc();
+            // addr + X with carry-over
+            let addr = lo as u16 + ((hi as u16) << 8);
+            // TODO implement page-boundary extra cycle when low byte carries over
+            let (addr, _) = addr.overflowing_add(state.y as u16);
+            Address(addr)
         }
         REL => {
             state.inc_pc();
