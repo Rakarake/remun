@@ -85,6 +85,10 @@ impl Visualizer {
             time_last_frame: Instant::now(),
         }
     }
+    fn run_one_instruction(&mut self, state: &mut State) {
+        state.run_one_instruction();
+        self.debugger.jump_to_pc(state);
+    }
     pub fn update(&mut self, ctx: &egui::Context, state: &mut State) {
         //egui::Window::new("hello").show(ctx, |ui| {
         use egui::containers::Frame;
@@ -116,7 +120,7 @@ impl Visualizer {
                 *state = State::new(state.ines.clone());
             }
             if ui.small_button("step").clicked() {
-                state.run_one_instruction();
+                self.run_one_instruction(state);
             }
             ui.heading("Run speed (instructions per second)");
             integer_edit_field(ui, &mut self.speed);
@@ -128,7 +132,7 @@ impl Visualizer {
                 let delta = self.time_last_frame.elapsed();
                 let instructions_to_run = (delta.as_millis()) * self.speed as u128 / 1000;
                 for _ in 0..instructions_to_run {
-                    state.run_one_instruction();
+                    self.run_one_instruction(state);
                     self.time_last_frame = Instant::now();
                     if self.debugger.breakpoints.contains(&(state.pc as u64)) {
                         self.running = false;
