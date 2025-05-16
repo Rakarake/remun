@@ -168,7 +168,6 @@ impl ApplicationHandler for App<'_> {
                 event_loop.exit();
             }
             WindowEvent::Resized(new_size) => {
-                log::info!("resizing requested 📐");
                 if let Some(render_state) = &mut self.render_state {
                     render_state.resize(new_size);
                 }

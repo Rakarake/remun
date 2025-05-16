@@ -35,6 +35,10 @@
             wayland.dev
             wayland-protocols
             libGL
+            vulkan-headers vulkan-loader
+            vulkan-tools vulkan-tools-lunarg
+            vulkan-extension-layer
+            vulkan-validation-layers # don't need them *strictly* but immensely helpful
             #libglvnd
           ];
         };
