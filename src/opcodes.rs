@@ -34,9 +34,7 @@ fn shift(state: &mut State, addr: Option<u16>, right: bool, rotate: bool) {
 }
 
 /// add: use addition, otherwise subtraction
-fn addsub(state: &mut State, addr: u16, sub: bool) {
-    let arg1 = state.a;
-    let arg2 = state.read(addr, false);
+fn addsub(state: &mut State, sub: bool, arg1: u8, arg2: u8) -> u8 {
     // 'not' the carry if subtracting
     let old_c = state.get_flag(flags::C) ^ sub;
 
@@ -53,10 +51,11 @@ fn addsub(state: &mut State, addr: u16, sub: bool) {
     let (val_test, v) = op_i(arg1 as i8, arg2 as i8);
     let (_, v_2) = op_i(val_test, old_c as i8);
     
-    state.a = val;
+    //state.a = val;
     state.set_flag(flags::C, c | c_2);
     state.set_flag(flags::V, v | v_2);
     new_value(state, val);
+    val
 }
 
 fn incdec(state: &mut State, addr: u16, inc: bool) {
@@ -112,8 +111,39 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
             }
             match opcode {
                 // Arithmetic Instructions
-                ADC => addsub(state, addr, false),
-                SBC => addsub(state, addr, true),
+                //
+    //let arg1 = state.a;
+    //let arg2 = state.read(addr, false);
+                ADC => {
+                    let arg2 = state.read(addr, false);
+                    state.a = addsub(state, false, state.a, arg2);
+                },
+                SBC => {
+                    let arg2 = state.read(addr, false);
+                    state.a = addsub(state, true, state.a, arg2);
+                },
+                CMP => {
+                    let arg2 = state.read(addr, false);
+                    addsub(state, true, state.a, arg2);
+                }
+                CPX => {
+                    let arg2 = state.read(addr, false);
+                    addsub(state, true, state.x, arg2);
+                }
+                CPY => {
+                    let arg2 = state.read(addr, false);
+                    addsub(state, true, state.y, arg2);
+                }
+
+                // The weird BIT instruction.
+                // A AND M -> Z, M7 -> N, M6 -> V
+                BIT => {
+                    let arg = state.read(addr, false);
+                    state.sr = arg & 0b11000000;
+                    state.set_flag(flags::Z, state.a & arg == 0);
+                }
+
+                // Compare instructions (SUB without writing value back).
 
                 // Bitwise operations
                 AND => bitwise!(&),
