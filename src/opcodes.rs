@@ -194,7 +194,7 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                     state.pc = addr;
                 }
 
-                o => unimplemented!("address provided to opcode {o}"),
+                o => unimplemented!("address provided to opcode {o}, pc = {:#06X}", state.pc),
             }
         }
         Accumulator => match opcode {
@@ -203,7 +203,7 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
             ROR => shift(state, None, true, true),
             ASL => shift(state, None, false, false),
             LSR => shift(state, None, true, false),
-            _ => unimplemented!("opcode {:?} not implemented for accumulator operation", opcode),
+            _ => unimplemented!("opcode {:?} not implemented for accumulator operation, pc = {:#06X}", opcode, state.pc),
         },
         Impl => {
             macro_rules! set_flag {
@@ -278,7 +278,7 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                 }
 
                 NOP => {},
-                _ => unimplemented!("opcode not implemented: {:?}", opcode),
+                _ => unimplemented!("implied opcode not implemented: {:?}, pc = {:#06X}", opcode, state.pc),
             }
         }
     }
