@@ -4,10 +4,10 @@
 // everything is stored in a consecutive buffer
 
 use shared::Ines;
-use wgpu::{util::DeviceExt, BufferDescriptor, Queue, RenderPass};
+use wgpu::{BufferDescriptor, Queue, RenderPass, util::DeviceExt};
 
 // f32 * vertex * quad * (nr_sprites + background + foreground)
-const VERTEX_BUFFER_SIZE: usize = 4 * 4 * 4 * (64 + 31*29);
+const VERTEX_BUFFER_SIZE: usize = 4 * 4 * 4 * (64 + 31 * 29);
 
 // index buffer always the same
 const SQUARE_INDICES: &[u16] = &[0, 1, 2, 2, 3, 0];
@@ -52,7 +52,6 @@ const TEST_2_VERT: &[Vertex] = &[
     },
 ];
 
-
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
@@ -87,10 +86,7 @@ impl NesGraphics {
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(
-            self.index_buffer.slice(..),
-            wgpu::IndexFormat::Uint16,
-        );
+        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         render_pass.draw_indexed(0..(6 * (64 + 2)), 0, 0..1);
     }
 
@@ -98,12 +94,24 @@ impl NesGraphics {
         // clear buffer (unnecessary)
         queue.write_buffer(&self.vertex_buffer, 0, &[0; (4 * 4) * 4 * (64 + 2)]);
         // testing quads
-        queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(WHOLE_SCREEN_VERTICES));
-        queue.write_buffer(&self.vertex_buffer, 4 * 4 * 6, bytemuck::cast_slice(TEST_2_VERT));
+        queue.write_buffer(
+            &self.vertex_buffer,
+            0,
+            bytemuck::cast_slice(WHOLE_SCREEN_VERTICES),
+        );
+        queue.write_buffer(
+            &self.vertex_buffer,
+            4 * 4 * 6,
+            bytemuck::cast_slice(TEST_2_VERT),
+        );
     }
-    
-    pub fn new(device: &wgpu::Device, queue: &Queue, ines: &Ines, config: &wgpu::SurfaceConfiguration) -> Self {
 
+    pub fn new(
+        device: &wgpu::Device,
+        queue: &Queue,
+        ines: &Ines,
+        config: &wgpu::SurfaceConfiguration,
+    ) -> Self {
         // vertex buffer
         // 4 * 4 bytes per vertex, 4 vertices per quad, 64 + 2 quads
         let size = (4 * 4) * 4 * (64 + 2);
@@ -116,17 +124,24 @@ impl NesGraphics {
 
         // index buffer
         let mut index_buffer_cpu: [u16; 6 * (64 + 2)] = [0; 6 * (64 + 2)];
-        [SQUARE_INDICES; 64 + 2].iter().enumerate().for_each(|(square_index, square_indices)| {
-            square_indices.iter().enumerate().for_each(|(index_index, vertex_index)| {
-                index_buffer_cpu[square_index * 6 + index_index] = square_index as u16 * 3 + *vertex_index;
+        [SQUARE_INDICES; 64 + 2]
+            .iter()
+            .enumerate()
+            .for_each(|(square_index, square_indices)| {
+                square_indices
+                    .iter()
+                    .enumerate()
+                    .for_each(|(index_index, vertex_index)| {
+                        index_buffer_cpu[square_index * 6 + index_index] =
+                            square_index as u16 * 3 + *vertex_index;
+                    });
             });
-        });
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Index Buffer"),
             contents: bytemuck::cast_slice(&index_buffer_cpu),
             usage: wgpu::BufferUsages::INDEX,
         });
-        
+
         // Textures
         // the memory layout of the pattern tables: https://www.nesdev.org/wiki/PPU_pattern_tables
         let chr_bank_start = shared::BANK_SIZE * (ines.inesprg as usize * 2);
@@ -297,9 +312,11 @@ impl NesGraphics {
             cache: None,
         });
 
-        Self { vertex_buffer, index_buffer, diffuse_bind_group, render_pipeline }
+        Self {
+            vertex_buffer,
+            index_buffer,
+            diffuse_bind_group,
+            render_pipeline,
+        }
     }
 }
-
-
-

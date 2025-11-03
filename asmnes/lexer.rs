@@ -136,9 +136,21 @@ pub fn lex(program: &str) -> Result<Vec<DToken>, AsmnesError> {
             ':' => delimiter_then_push!(Token::Colon),
             ' ' => delimiter(&mut state, line, &mut output, &mut acc)?,
             '\t' => delimiter(&mut state, line, &mut output, &mut acc)?,
-            ';' => if state != LexState::ReadingComment { state = LexState::ReadingComment },
-            '$' => if state != LexState::ReadingComment {  state = LexState::ReadingHex },
-            '%' => if state != LexState::ReadingComment {  state = LexState::ReadingBin },
+            ';' => {
+                if state != LexState::ReadingComment {
+                    state = LexState::ReadingComment
+                }
+            }
+            '$' => {
+                if state != LexState::ReadingComment {
+                    state = LexState::ReadingHex
+                }
+            }
+            '%' => {
+                if state != LexState::ReadingComment {
+                    state = LexState::ReadingBin
+                }
+            }
             _ => {
                 match state {
                     LexState::Awaiting => {

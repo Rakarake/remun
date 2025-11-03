@@ -1,6 +1,14 @@
 use AddressingMode::*;
 use Opcode::*;
-use std::{collections::HashMap, error::Error, fmt, fs::File, io::{self, BufReader, Read}, path::{Path, PathBuf}, str::FromStr};
+use std::{
+    collections::HashMap,
+    error::Error,
+    fmt,
+    fs::File,
+    io::{self, BufReader, Read},
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 use strum::IntoEnumIterator;
 
 /// In number of bytes.
@@ -34,8 +42,8 @@ pub struct Ines {
 /// Error when reading an INES file.
 #[derive(Debug)]
 pub enum InesError {
-  ParseError(InesParseError),
-  IO(io::Error)
+    ParseError(InesParseError),
+    IO(io::Error),
 }
 
 /// Error when parsing an INES file.
@@ -61,13 +69,14 @@ impl fmt::Display for InesError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{}", match self {
+            "{}",
+            match self {
                 InesError::IO(e) => {
                     format!("{}", e)
-                },
+                }
                 InesError::ParseError(e) => {
                     format!("{}", e)
-                },
+                }
             }
         )
     }
@@ -83,7 +92,7 @@ impl Ines {
         let mut header: [u8; 16] = [0; 16];
         reader.read_exact(&mut header)?;
         if &header[0..4] != b"NES\x1a" {
-            return Err(InesError::ParseError(InesParseError::InvalidHeader))
+            return Err(InesError::ParseError(InesParseError::InvalidHeader));
         }
         let inesprg = header[4] as u16;
         let ineschr = header[5] as u16;
@@ -93,7 +102,7 @@ impl Ines {
         let data_len = reader.read_to_end(&mut banks)?;
         let expected_size = inesprg as usize * 1024 * 16 + ineschr as usize * 1024 * 8;
         if data_len != expected_size {
-            return Err(InesError::ParseError(InesParseError::FileInvalidLength))
+            return Err(InesError::ParseError(InesParseError::FileInvalidLength));
         }
         let data_source: Option<PathBuf> = Some(PathBuf::from(path.as_ref()));
         let labels = None;

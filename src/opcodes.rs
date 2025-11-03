@@ -1,8 +1,8 @@
 use crate::MemoryTarget;
 use crate::State;
+use log::debug;
 use shared::Opcode;
 use shared::flags;
-use log::debug;
 
 // Thanks https://www.masswerk.at/6502/6502_instruction_set.html, made this
 // a plesant experience!
@@ -18,10 +18,14 @@ fn shift(state: &mut State, addr: Option<u16>, right: bool, rotate: bool) {
         state.a
     };
     // find the bit that will be outshifted (new carry)
-    let new_c = old & (1 << if right {0} else {7});
+    let new_c = old & (1 << if right { 0 } else { 7 });
     // shift
-    let val = if right {old >> 1} else {old << 1}
-        | if rotate {(state.get_flag(flags::C) as u8) << if right {7} else {0}} else {0};
+    let val = if right { old >> 1 } else { old << 1 }
+        | if rotate {
+            (state.get_flag(flags::C) as u8) << if right { 7 } else { 0 }
+        } else {
+            0
+        };
     // write result
     if let Some(addr) = addr {
         state.write(addr, val);
@@ -40,17 +44,25 @@ fn addsub(state: &mut State, sub: bool, arg1: u8, arg2: u8) -> u8 {
 
     // determine what operations to use to calculate unsigned carryover
     // and signed carryover for addition/subtraction respectively
-    let op_u = if sub {|x: u8, y: u8| x.overflowing_sub(y)} else {|x: u8, y: u8| x.overflowing_add(y)};
-    let op_i = if sub {|x: i8, y: i8| x.overflowing_sub(y)} else {|x: i8, y: i8| x.overflowing_add(y)};
-    
+    let op_u = if sub {
+        |x: u8, y: u8| x.overflowing_sub(y)
+    } else {
+        |x: u8, y: u8| x.overflowing_add(y)
+    };
+    let op_i = if sub {
+        |x: i8, y: i8| x.overflowing_sub(y)
+    } else {
+        |x: i8, y: i8| x.overflowing_add(y)
+    };
+
     // Get c/carry (unsigned overflow) and the result
     let (val, c) = op_u(arg1, arg2);
     let (val, c_2) = op_u(val, old_c as u8);
-    
+
     // Get v/overflow (signed overflow)
     let (val_test, v) = op_i(arg1 as i8, arg2 as i8);
     let (_, v_2) = op_i(val_test, old_c as i8);
-    
+
     //state.a = val;
     state.set_flag(flags::C, c | c_2);
     state.set_flag(flags::V, v | v_2);
@@ -60,7 +72,14 @@ fn addsub(state: &mut State, sub: bool, arg1: u8, arg2: u8) -> u8 {
 
 fn incdec(state: &mut State, addr: u16, inc: bool) {
     let val = state.read(addr, false);
-    state.write(addr, if inc {val.wrapping_add(1)} else {val.wrapping_sub(1)});
+    state.write(
+        addr,
+        if inc {
+            val.wrapping_add(1)
+        } else {
+            val.wrapping_sub(1)
+        },
+    );
     new_value(state, val);
 }
 
@@ -112,16 +131,16 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
             match opcode {
                 // Arithmetic Instructions
                 //
-    //let arg1 = state.a;
-    //let arg2 = state.read(addr, false);
+                //let arg1 = state.a;
+                //let arg2 = state.read(addr, false);
                 ADC => {
                     let arg2 = state.read(addr, false);
                     state.a = addsub(state, false, state.a, arg2);
-                },
+                }
                 SBC => {
                     let arg2 = state.read(addr, false);
                     state.a = addsub(state, true, state.a, arg2);
-                },
+                }
                 CMP => {
                     let arg2 = state.read(addr, false);
                     addsub(state, true, state.a, arg2);
@@ -203,7 +222,11 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
             ROR => shift(state, None, true, true),
             ASL => shift(state, None, false, false),
             LSR => shift(state, None, true, false),
-            _ => unimplemented!("opcode {:?} not implemented for accumulator operation, pc = {:#06X}", opcode, state.pc),
+            _ => unimplemented!(
+                "opcode {:?} not implemented for accumulator operation, pc = {:#06X}",
+                opcode,
+                state.pc
+            ),
         },
         Impl => {
             macro_rules! set_flag {
@@ -249,7 +272,6 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                 CLI => set_flag!(flags::I, false),
                 SEI => set_flag!(flags::I, true),
 
-
                 // Increments / Decrements
                 DEX => incdecxy!(state.x, wrapping_sub),
                 INX => incdecxy!(state.x, wrapping_add),
@@ -277,8 +299,12 @@ pub fn run(opcode: Opcode, state: &mut State, memory_target: MemoryTarget) {
                     state.pc = state.read_u16(shared::vectors::BRK);
                 }
 
-                NOP => {},
-                _ => unimplemented!("implied opcode not implemented: {:?}, pc = {:#06X}", opcode, state.pc),
+                NOP => {}
+                _ => unimplemented!(
+                    "implied opcode not implemented: {:?}, pc = {:#06X}",
+                    opcode,
+                    state.pc
+                ),
             }
         }
     }

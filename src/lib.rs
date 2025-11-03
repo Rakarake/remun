@@ -16,8 +16,8 @@ use shared::AddressingMode;
 use shared::BANK_SIZE;
 use shared::CODEPOINTS;
 use shared::Codepoint;
-use shared::Opcode;
 use shared::Ines;
+use shared::Opcode;
 
 /// The state of the NES, registers, all devices mapped to memory-regions
 pub struct State {
@@ -88,12 +88,17 @@ pub struct PpuState {
     pub sprite_0_hit: bool,
     /// Buggy detection to check if there are more than 8 sprites on a scanline.
     pub sprite_overflow: bool,
-
 }
 
 impl PpuState {
     fn new() -> Self {
-        Self { tmp_addr: None, tmp_val: 0, vblank: false, sprite_0_hit: false, sprite_overflow: false }
+        Self {
+            tmp_addr: None,
+            tmp_val: 0,
+            vblank: false,
+            sprite_0_hit: false,
+            sprite_overflow: false,
+        }
     }
 }
 
@@ -120,8 +125,8 @@ impl fmt::Display for FileError {
 pub fn load_from_file<T: AsRef<Path>>(path: T) -> Result<Ines, FileError> {
     if let Some(os_str) = path.as_ref().extension() {
         match os_str.to_str() {
-            Some("nes") => { shared::Ines::from_file(&path).map_err(FileError::InesError) }
-            Some("asm") => { assemble(&path).map_err(FileError::AsmnesError) }
+            Some("nes") => shared::Ines::from_file(&path).map_err(FileError::InesError),
+            Some("asm") => assemble(&path).map_err(FileError::AsmnesError),
             _ => Err(FileError::InvalidFileType),
         }
     } else {
@@ -139,72 +144,58 @@ impl State {
         let sp = 0xFF;
         let cycles = 0;
         let mut memory: Vec<MemoryMap> = Vec::new();
-        memory.push(
-            MemoryMap {
-                memory_regions: vec![MemoryRegion {
-                    address_space: AddressSpace::Cpu,
-                    range: 0x0000..=0x07FF,
-                }],
-                device: Device::Ram(vec![0; 0x0800]),
-            },
-        );
+        memory.push(MemoryMap {
+            memory_regions: vec![MemoryRegion {
+                address_space: AddressSpace::Cpu,
+                range: 0x0000..=0x07FF,
+            }],
+            device: Device::Ram(vec![0; 0x0800]),
+        });
         if ines.inesprg == 1 {
-            memory.push(
-                MemoryMap {
-                    memory_regions: vec![
-                        MemoryRegion {
-                            address_space: AddressSpace::Cpu,
-                            range: 0x8000..=0x9FFF,
-                        },
-                        // Mirrored region
-                        MemoryRegion {
-                            address_space: AddressSpace::Cpu,
-                            range: 0xC000..=0xDFFF,
-                        },
-                    ],
-                    device: Device::Rom(0),
-                }
-            );
-            memory.push(
-                MemoryMap {
-                    memory_regions: vec![
-                        MemoryRegion {
-                            address_space: AddressSpace::Cpu,
-                            range: 0xA000..=0xBFFF,
-                        },
-                        // Mirrored region
-                        MemoryRegion {
-                            address_space: AddressSpace::Cpu,
-                            range: 0xE000..=0xFFFF,
-                        },
-                    ],
-                    device: Device::Rom(1),
-                }
-            );
+            memory.push(MemoryMap {
+                memory_regions: vec![
+                    MemoryRegion {
+                        address_space: AddressSpace::Cpu,
+                        range: 0x8000..=0x9FFF,
+                    },
+                    // Mirrored region
+                    MemoryRegion {
+                        address_space: AddressSpace::Cpu,
+                        range: 0xC000..=0xDFFF,
+                    },
+                ],
+                device: Device::Rom(0),
+            });
+            memory.push(MemoryMap {
+                memory_regions: vec![
+                    MemoryRegion {
+                        address_space: AddressSpace::Cpu,
+                        range: 0xA000..=0xBFFF,
+                    },
+                    // Mirrored region
+                    MemoryRegion {
+                        address_space: AddressSpace::Cpu,
+                        range: 0xE000..=0xFFFF,
+                    },
+                ],
+                device: Device::Rom(1),
+            });
         } else {
             // The other 16KiB
-            memory.push(
-                MemoryMap {
-                    memory_regions: vec![
-                        MemoryRegion {
-                            address_space: AddressSpace::Cpu,
-                            range: 0xC000..=0xDFFF,
-                        },
-                    ],
-                    device: Device::Rom(3),
-                }
-            );
-            memory.push(
-                MemoryMap {
-                    memory_regions: vec![
-                        MemoryRegion {
-                            address_space: AddressSpace::Cpu,
-                            range: 0xE000..=0xFFFF,
-                        },
-                    ],
-                    device: Device::Rom(4),
-                }
-            );
+            memory.push(MemoryMap {
+                memory_regions: vec![MemoryRegion {
+                    address_space: AddressSpace::Cpu,
+                    range: 0xC000..=0xDFFF,
+                }],
+                device: Device::Rom(3),
+            });
+            memory.push(MemoryMap {
+                memory_regions: vec![MemoryRegion {
+                    address_space: AddressSpace::Cpu,
+                    range: 0xE000..=0xFFFF,
+                }],
+                device: Device::Rom(4),
+            });
         }
 
         // 8KiB pattern memory
@@ -214,13 +205,17 @@ impl State {
                 // TODO when working with the ppu
                 range: 0x0000..=0x1FFF,
             }],
-            device: Device::Rom(if ines.inesprg == 1 {3} else {5}),
+            device: Device::Rom(if ines.inesprg == 1 { 3 } else { 5 }),
         });
 
         // VRAM; Nametables
         let nametables_range: RangeInclusive<u16> = 0x2000..=0x3EFF;
         memory.push(MemoryMap {
-            device: Device::Ram(vec![0; (nametables_range.end()+1 - nametables_range.start()) as usize]),
+            device: Device::Ram(vec![
+                0;
+                (nametables_range.end() + 1 - nametables_range.start())
+                    as usize
+            ]),
             memory_regions: vec![MemoryRegion {
                 address_space: AddressSpace::Ppu,
                 range: nametables_range,
@@ -284,7 +279,10 @@ impl State {
             opcode,
             addressing_mode,
         } = CODEPOINTS[instr as usize].clone();
-        debug!("running {:?} {:?} at ${:04X}", opcode, addressing_mode, self.pc);
+        debug!(
+            "running {:?} {:?} at ${:04X}",
+            opcode, addressing_mode, self.pc
+        );
         let memory_target = addressing_modes::run(addressing_mode, self);
         opcodes::run(opcode, self, memory_target);
     }
@@ -329,27 +327,25 @@ impl State {
                     };
                     bs[address as usize] = value;
                 }
-                Device::PpuRegisters => {
-                    match address & 0b111 {
-                        0x0006 => {
-                            match self.ppu_state.tmp_addr {
-                                None => {
-                                    self.ppu_state.tmp_addr = Some(address & 0xFF00);
-                                },
-                                Some(x) => {
-                                    self.ppu_state.tmp_addr = Some(x | (address & 0x00FF));
-                                }
-                            }
-                        },
-                        0x0007 => {
-                            if let Some(address) = self.ppu_state.tmp_addr {
-                                self.ppu_write(address, value);
-                            } else {
-                                log::warn!("expecting an address to be put in the ppu address register");
-                            }
-                        },
-                        _ => {},
+                Device::PpuRegisters => match address & 0b111 {
+                    0x0006 => match self.ppu_state.tmp_addr {
+                        None => {
+                            self.ppu_state.tmp_addr = Some(address & 0xFF00);
+                        }
+                        Some(x) => {
+                            self.ppu_state.tmp_addr = Some(x | (address & 0x00FF));
+                        }
+                    },
+                    0x0007 => {
+                        if let Some(address) = self.ppu_state.tmp_addr {
+                            self.ppu_write(address, value);
+                        } else {
+                            log::warn!(
+                                "expecting an address to be put in the ppu address register"
+                            );
+                        }
                     }
+                    _ => {}
                 },
             }
         }
@@ -362,9 +358,7 @@ impl State {
         }
         if let Some((d, r)) = try_address(&mut self.memory, bus, address) {
             match d {
-                Device::Ram(bytes) => {
-                    bytes[address as usize - *r.start() as usize]
-                }
+                Device::Ram(bytes) => bytes[address as usize - *r.start() as usize],
                 Device::Rom(i) => {
                     let index = address as usize - *r.start() as usize;
                     // This means supplied ROM does not have to be filled
@@ -386,23 +380,30 @@ impl State {
                         _ => address,
                     };
                     bs[address as usize]
-                },
+                }
                 Device::PpuRegisters => {
                     match address & 0b111 {
                         // PPUSTATUS, PPU Status register
                         0x0002 => {
                             // TODO remove this
                             self.ppu_state.vblank = true;
-                            let to_return = 
-                                (if self.ppu_state.vblank {1<<7} else {0}) |
-                                (if self.ppu_state.sprite_0_hit {1<<6} else {0}) |
-                                (if self.ppu_state.sprite_overflow {1<<5} else {0});
+                            let to_return = (if self.ppu_state.vblank { 1 << 7 } else { 0 })
+                                | (if self.ppu_state.sprite_0_hit {
+                                    1 << 6
+                                } else {
+                                    0
+                                })
+                                | (if self.ppu_state.sprite_overflow {
+                                    1 << 5
+                                } else {
+                                    0
+                                });
                             if !read_only {
                                 self.ppu_state.vblank = false;
                                 self.ppu_state.tmp_addr = None;
                             }
                             to_return
-                        },
+                        }
                         // PPUDATA, VRAM Data Read/Write
                         0x0007 => {
                             let mut to_return = self.ppu_state.tmp_val;
@@ -416,11 +417,11 @@ impl State {
                                 }
                             }
                             to_return
-                        },
+                        }
                         _ => 0,
                     }
                     //registers[address]
-                },
+                }
             }
         } else {
             0

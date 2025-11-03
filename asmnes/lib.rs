@@ -5,12 +5,12 @@ pub mod parser;
 
 use lexer::lex;
 use parser::parse;
-use shared::opcode_addressing_modes;
 use shared::AddressingMode;
 use shared::CODEPOINTS;
 use shared::Codepoint;
 use shared::Ines;
 use shared::Opcode;
+use shared::opcode_addressing_modes;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs;
@@ -33,7 +33,8 @@ macro_rules! err {
 /// Fully assemble a program.
 pub fn assemble<T: AsRef<Path>>(path: T) -> Result<Ines, AsmnesError> {
     let path = path.as_ref();
-    let program = &fs::read_to_string(path).map_err(|e| err!(format!("failed to load file: {e}"), 0))?;
+    let program =
+        &fs::read_to_string(path).map_err(|e| err!(format!("failed to load file: {e}"), 0))?;
     let mut ines = logical_assemble(&parse(lex(program)?)?)?;
     ines.data_source = Some(PathBuf::from(path));
     Ok(ines)
@@ -95,9 +96,9 @@ impl Instruction {
         let addressing_mode = AddressingMode::from(first);
         let arity = addressing_mode.arity();
         let operand = match arity {
-            0 => {Operand::No}
-            1 => {Operand::U8(*itr.next()?)}
-            2 => {Operand::U16((*itr.next()? as u16) | ((*itr.next()? as u16) << 8))},
+            0 => Operand::No,
+            1 => Operand::U8(*itr.next()?),
+            2 => Operand::U16((*itr.next()? as u16) | ((*itr.next()? as u16) << 8)),
             _ => panic!("internal error, impossible arity"),
         };
         Some((Instruction(opcode, addressing_mode, operand), arity + 1))
@@ -109,13 +110,27 @@ impl fmt::Display for Instruction {
         write!(f, "{}", self.0)?;
         use AddressingMode::*;
         match self.1 {
-            IMM => { write!(f, " #{}", self.2) }
-            IMPL => { write!(f, "") }
-            A => { write!(f, " A") }
-            IND => { write!(f, " ({})", self.2) }
-            IND_Y => { write!(f, " ({}), Y", self.2) }
-            X_IND => { write!(f, " ({}, X)", self.2) }
-            _ => { write!(f, " {}", self.2) }
+            IMM => {
+                write!(f, " #{}", self.2)
+            }
+            IMPL => {
+                write!(f, "")
+            }
+            A => {
+                write!(f, " A")
+            }
+            IND => {
+                write!(f, " ({})", self.2)
+            }
+            IND_Y => {
+                write!(f, " ({}), Y", self.2)
+            }
+            X_IND => {
+                write!(f, " ({}, X)", self.2)
+            }
+            _ => {
+                write!(f, " {}", self.2)
+            }
         }
     }
 }

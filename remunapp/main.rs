@@ -16,8 +16,8 @@ use winit::{
     window::{Window, WindowAttributes, WindowId},
 };
 
-mod visualizer;
 mod nes_graphics;
+mod visualizer;
 
 struct App<'window> {
     window: Option<Arc<Window>>,
