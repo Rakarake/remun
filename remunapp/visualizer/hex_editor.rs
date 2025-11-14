@@ -38,10 +38,8 @@ impl HexEditor {
         let get_function: Box<dyn Fn(u64, &mut State) -> u8> = match self.binary_type {
             BinaryType::CpuBus => {
                 ui.heading("CPU Bus View");
-                Box::new(|addr: u64, state: &mut State| -> u8 {
-                    state.read(addr as u16, true)
-                })
-            },
+                Box::new(|addr: u64, state: &mut State| -> u8 { state.read(addr as u16, true) })
+            }
             BinaryType::Banks => {
                 ui.heading("Bank View");
                 Box::new(|addr: u64, state: &mut State| -> u8 {

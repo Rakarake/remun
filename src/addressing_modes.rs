@@ -86,14 +86,18 @@ pub fn run(addressing_mode: AddressingMode, state: &mut State) -> MemoryTarget {
             let hi = state.read(state.pc, false);
             state.inc_pc();
             let pointer = lo as u16 + ((hi as u16) << 8);
-            Address(state.read(pointer, false) as u16 + ((state.read(pointer + 1, false) as u16) << 8))
+            Address(
+                state.read(pointer, false) as u16 + ((state.read(pointer + 1, false) as u16) << 8),
+            )
         }
         X_IND => {
             state.inc_pc();
             let lo = state.read(state.pc, false);
             state.inc_pc();
             let pointer = (lo as u16) + (state.x as u16);
-            Address(state.read(pointer, false) as u16 + ((state.read(pointer + 1, false) as u16) << 8))
+            Address(
+                state.read(pointer, false) as u16 + ((state.read(pointer + 1, false) as u16) << 8),
+            )
         }
         IND_Y => {
             state.inc_pc();
