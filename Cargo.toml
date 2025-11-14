@@ -27,6 +27,8 @@ wgpu = "24.0"
 pollster = "*"
 bytemuck = { version = "1.22", features = [ "derive" ] }
 image = { version = "0.24", default-features = false, features = ["png", "jpeg"] }
+serde = "*"
+serde_json = "*"
 
 shared = { path = "shared" }
 asmnes = { path = "asmnes" }
