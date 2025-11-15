@@ -1,4 +1,4 @@
-#![feature(let_chains, iter_array_chunks)]
+#![feature(iter_array_chunks, try_blocks)]
 use ::egui::FontDefinitions;
 use egui_wgpu_backend::{RenderPass, ScreenDescriptor};
 use egui_winit_platform::{Platform, PlatformDescriptor};

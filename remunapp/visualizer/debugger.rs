@@ -46,43 +46,7 @@ impl Debugger {
     pub fn update(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, state: &mut State) {
         if ui.button("Load metadata").clicked() {}
         if ui.button("Save metadata").clicked() {
-            // TODO save relevant metadata to JSON file
-            //let r: std::io::Result = todo!();
-            if let Some(m) = state.ines.metadata.as_ref() {
-                match serde_json::to_string_pretty(m) {
-                    Ok(json) => {
-                        if let Some(m) = state.ines.metadata.as_mut()
-                            && let Some(source_path) = m.data_source.as_mut()
-                        {
-                            if let Some(parent) = source_path.parent() {
-                                let path = parent.join(Path::new("metadata.json"));
-                                match std::fs::OpenOptions::new()
-                                    .write(true)
-                                    .truncate(true)
-                                    .create(true)
-                                    .open(path)
-                                {
-                                    Ok(mut f) => {
-                                        if let Err(e) = write!(f, "{}", json) {
-                                            log::error!("failed to write line, file error: {}", e);
-                                        }
-                                    }
-                                    Err(e) => {
-                                        log::error!("failed to save metadata, file error: {}", e);
-                                    }
-                                }
-                            } else {
-                                log::error!(
-                                    "failed to save metadata, data_source path has no parent dir"
-                                )
-                            }
-                        } else {
-                            log::warn!("no known file to save metadata alongside")
-                        }
-                    }
-                    Err(e) => log::error!("failed to save metadata, error: {}", e),
-                }
-            }
+            save_metadata(state);
         }
         ui.text_edit_singleline(&mut self.new_label_text);
         if ui.button("Add label").clicked() && !self.new_label_text.is_empty() {
@@ -166,4 +130,24 @@ impl Debugger {
                 }
             });
     }
+}
+
+fn save_metadata(state: &State) -> Option<()> {
+    let metadata = state.ines.metadata.as_ref()?;
+    let data_source = metadata.data_source.as_ref()?;
+    let json_string = serde_json::to_string_pretty(metadata)
+        .map_err(|e| log::error!("{e}"))
+        .ok()?;
+    let parent_dir = data_source.parent()?;
+    let path = parent_dir.join(Path::new("metadata.json"));
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .create(true)
+        .open(path)
+        .map_err(|e| log::error!("{e}"))
+        .ok()?;
+    write!(file, "{}", json_string)
+        .map_err(|e| log::error!("{e}"))
+        .ok()
 }
