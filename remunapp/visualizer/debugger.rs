@@ -151,3 +151,7 @@ fn save_metadata(state: &State) -> Option<()> {
         .map_err(|e| log::error!("{e}"))
         .ok()
 }
+
+fn load_metadata(state: &mut State) -> Option<()> {
+    None
+}
