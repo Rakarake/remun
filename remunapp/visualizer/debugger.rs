@@ -1,6 +1,7 @@
 use asmnes::Instruction;
 use egui::{Color32, RichText};
 use remun::State;
+use std::fs;
 use std::io::Write;
 use std::path::Path;
 
@@ -44,7 +45,9 @@ impl Debugger {
         }
     }
     pub fn update(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, state: &mut State) {
-        if ui.button("Load metadata").clicked() {}
+        if ui.button("Load metadata").clicked() {
+            load_metadata(state);
+        }
         if ui.button("Save metadata").clicked() {
             save_metadata(state);
         }
@@ -132,14 +135,14 @@ impl Debugger {
     }
 }
 
+/// Save metadata alongside file with `.meta` extension.
 fn save_metadata(state: &State) -> Option<()> {
     let metadata = state.ines.metadata.as_ref()?;
     let data_source = metadata.data_source.as_ref()?;
     let json_string = serde_json::to_string_pretty(metadata)
         .map_err(|e| log::error!("{e}"))
         .ok()?;
-    let parent_dir = data_source.parent()?;
-    let path = parent_dir.join(Path::new("metadata.json"));
+    let path = data_source.with_added_extension("meta");
     let mut file = std::fs::OpenOptions::new()
         .write(true)
         .truncate(true)
@@ -153,5 +156,18 @@ fn save_metadata(state: &State) -> Option<()> {
 }
 
 fn load_metadata(state: &mut State) -> Option<()> {
-    None
+    let path = state
+        .ines
+        .metadata
+        .as_ref()?
+        .data_source
+        .as_ref()?
+        .with_added_extension("meta");
+    let file_contents = fs::read_to_string(path)
+        .map_err(|e| log::error!("{e}"))
+        .ok()?;
+    state.ines.metadata = serde_json::from_str(&file_contents)
+        .map_err(|e| log::error!("{e}"))
+        .ok();
+    Some(())
 }
