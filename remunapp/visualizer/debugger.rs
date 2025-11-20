@@ -48,7 +48,7 @@ impl Debugger {
         let mut input = ctx.input(|i| i.clone());
         if ui.button("Load metadata").clicked()
             || input.consume_shortcut(&egui::KeyboardShortcut::new(
-                egui::Modifiers::SHIFT,
+                egui::Modifiers::CTRL,
                 egui::Key::L,
             ))
         {
@@ -56,7 +56,7 @@ impl Debugger {
         }
         if ui.button("Save metadata").clicked()
             || input.consume_shortcut(&egui::KeyboardShortcut::new(
-                egui::Modifiers::SHIFT,
+                egui::Modifiers::CTRL,
                 egui::Key::S,
             ))
         {

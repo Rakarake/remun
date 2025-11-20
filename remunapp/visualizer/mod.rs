@@ -27,8 +27,8 @@ use debugger::Debugger;
 use hex_editor::HexEditor;
 
 pub struct Visualizer {
-    hidden: bool,
     running: bool,
+    hidden: bool,
     /// Instructions per second.
     speed: u64,
     time_last_frame: Instant,
@@ -89,7 +89,7 @@ impl Visualizer {
         Self {
             hidden: false,
             running: false,
-            speed: 1,
+            speed: 400000,
             view: View::Disassembly,
             debugger: Debugger::new(state),
             hex_editor: HexEditor::new(),
@@ -101,6 +101,7 @@ impl Visualizer {
         self.debugger.jump_to_pc(state);
     }
     pub fn update(&mut self, ctx: &egui::Context, state: &mut State) {
+        let mut input = ctx.input(|i| i.clone());
         //egui::Window::new("hello").show(ctx, |ui| {
         use egui::containers::Frame;
         use egui::ecolor::Color32;
@@ -140,6 +141,13 @@ impl Visualizer {
                 ui.heading("Run speed (instructions per second)");
                 integer_edit_field(ui, &mut self.speed);
                 if ui.toggle_value(&mut self.running, "Running").clicked() {
+                    self.time_last_frame = Instant::now();
+                }
+                if input.consume_shortcut(&egui::KeyboardShortcut::new(
+                    egui::Modifiers::CTRL,
+                    egui::Key::R,
+                )) {
+                    self.running = !self.running;
                     self.time_last_frame = Instant::now();
                 }
                 if self.running {
@@ -193,7 +201,6 @@ impl Visualizer {
                 //));
             });
         egui::CentralPanel::default().frame(frame).show(ctx, |ui| {
-            let input = ctx.input(|i| i.clone());
             if input.key_pressed(Key::H) {
                 self.view = View::HexEditor;
             }
