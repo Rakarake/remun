@@ -155,6 +155,9 @@ impl ApplicationHandler for App<'_> {
         self.render_state = Some(render_state);
         self.egui_overlay = Some(egui_overlay);
     }
+    fn exiting(&mut self, event_loop: &ActiveEventLoop) {
+        println!("EXITING (fr now)");
+    }
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
         log::trace!("{event:?}");
         self.egui_overlay

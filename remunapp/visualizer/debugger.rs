@@ -45,10 +45,21 @@ impl Debugger {
         }
     }
     pub fn update(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, state: &mut State) {
-        if ui.button("Load metadata").clicked() {
+        let mut input = ctx.input(|i| i.clone());
+        if ui.button("Load metadata").clicked()
+            || input.consume_shortcut(&egui::KeyboardShortcut::new(
+                egui::Modifiers::SHIFT,
+                egui::Key::L,
+            ))
+        {
             load_metadata(state);
         }
-        if ui.button("Save metadata").clicked() {
+        if ui.button("Save metadata").clicked()
+            || input.consume_shortcut(&egui::KeyboardShortcut::new(
+                egui::Modifiers::SHIFT,
+                egui::Key::S,
+            ))
+        {
             save_metadata(state);
         }
         ui.text_edit_singleline(&mut self.new_label_text);
@@ -78,7 +89,6 @@ impl Debugger {
                 self.line_number = ln;
             }
         }
-        let input = ctx.input(|i| i.clone());
         crate::visualizer::scroll_area(ctx, ui, &mut self.line_number, &mut self.cursor);
         if input.key_pressed(egui::Key::Enter) {
             if let Some(ln) = self
